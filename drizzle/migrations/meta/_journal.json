@@ -8,6 +8,13 @@
       "when": 1789380900459,
       "tag": "0000_messaging_core",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789380941830,
+      "tag": "0001_storage_policies",
+      "breakpoints": true
     }
   ]
 }
