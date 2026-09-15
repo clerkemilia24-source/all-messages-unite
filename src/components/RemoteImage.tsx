@@ -27,7 +27,7 @@ export function RemoteImage({
   className,
 }: {
   bucket: string;
-  path?: string | null;
+  path?: string | null | undefined;
   alt: string;
   className?: string;
 }) {
@@ -43,7 +43,7 @@ export function ChatAvatar({
   online,
 }: {
   name: string;
-  path?: string | null;
+  path?: string | null | undefined;
   size?: number;
   online?: boolean;
 }) {

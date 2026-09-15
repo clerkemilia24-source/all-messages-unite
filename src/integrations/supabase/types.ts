@@ -217,6 +217,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_chat: {
+        Args: { _is_group: boolean; _name: string; _other_ids: string[] }
+        Returns: string
+      }
       is_member: {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
