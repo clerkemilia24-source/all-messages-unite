@@ -15,6 +15,13 @@
       "when": 1789380941830,
       "tag": "0001_storage_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789430656097,
+      "tag": "0002_atomic_chat_creation",
+      "breakpoints": true
     }
   ]
 }

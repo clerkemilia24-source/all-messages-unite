@@ -42,7 +42,7 @@ export function conversationTitle(c: {
 }) {
   if (c.name) return c.name;
   if (c.others.length === 0) return "You";
-  if (!c.is_group) return c.others[0]!.display_name;
+  if (!c.is_group) return c.others[0]?.display_name ?? "You";
   return c.others.map((o) => o.display_name.split(" ")[0]).join(", ");
 }
 
@@ -166,14 +166,11 @@ export async function createConversation(
   isGroup: boolean,
   name: string | null,
 ): Promise<string> {
-  const { data: conv, error } = await supabase
-    .from("conversations")
-    .insert({ is_group: isGroup, name, created_by: userId })
-    .select("id")
-    .single();
+  const { data: conv, error } = await supabase.rpc("create_chat", {
+    _other_ids: otherIds.filter(id => id !== userId),
+    _is_group: isGroup,
+    _name: name ?? "",
+  });
   if (error) throw error;
-  const rows = [userId, ...otherIds].map((id) => ({ conversation_id: conv.id, user_id: id }));
-  const { error: mErr } = await supabase.from("conversation_members").insert(rows);
-  if (mErr) throw mErr;
-  return conv.id;
+  return conv;
 }
