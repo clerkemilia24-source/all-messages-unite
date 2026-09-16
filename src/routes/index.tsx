@@ -4,6 +4,10 @@ import { Search, SquarePen, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, isOnline } from "@/lib/auth";
 import { ChatAvatar } from "@/components/RemoteImage";
+import { useQuery } from '@tanstack/react-query';
+import { useServerFn } from '@tanstack/react-start';
+import { searchMessages } from '@/lib/search.functions';
+import { Button } from '@/components/ui/button';
 import {
   loadConversations,
   conversationTitle,
@@ -35,6 +39,11 @@ function Inbox() {
   const navigate = useNavigate();
   const [items, setItems] = useState<ConversationSummary[] | null>(null);
   const [q, setQ] = useState("");
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
+  const runSearch = useServerFn(searchMessages);
+  useEffect(() => { const timer = setTimeout(() => { setSearch(q.trim()); setPage(0); }, 300); return () => clearTimeout(timer); }, [q]);
+  const results = useQuery({ queryKey: ['message-search', user?.id, search, page], queryFn: () => runSearch({ data: { query: search, page } }), enabled: !!user && !!search });
 
   useEffect(() => {
     if (!loading && !user) void navigate({ to: "/auth" });
@@ -103,10 +112,18 @@ function Inbox() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search"
+            aria-label="Search chats and messages"
             className="w-full bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
           />
         </div>
       </header>
+
+      {search && <section className="border-b border-border px-4 py-3" aria-label="Message search results">
+        <h2 className="mb-2 text-sm font-semibold">Messages</h2>
+        {results.isFetching ? <Loader2 className="h-5 w-5 animate-spin" aria-label="Searching messages" /> : results.isError ? <p role="alert">Search failed. <Button variant="link" onClick={() => void results.refetch()}>Try again</Button></p> : <ul className="divide-y divide-border">{results.data?.messages.map(m => <li key={m.id}><Link to="/chat/$id" params={{ id: m.conversation_id }} search={{ message: m.id }} className="block py-3"><p className="text-sm font-semibold">{items?.find(c => c.id === m.conversation_id) ? conversationTitle(items.find(c => c.id === m.conversation_id) as ConversationSummary) : 'Conversation'}</p><p className="line-clamp-2 break-words text-sm text-muted-foreground">{m.body}</p></Link></li>)}</ul>}
+        {!results.isFetching && results.data?.messages.length === 0 && <p className="text-sm text-muted-foreground">No matching messages</p>}
+        <div className="flex justify-between">{page > 0 && <Button variant="ghost" onClick={() => setPage(p => p - 1)}>Previous</Button>}{results.data?.hasMore && <Button variant="ghost" onClick={() => setPage(p => p + 1)}>Next</Button>}</div>
+      </section>}
 
       {items === null ? (
         <div className="flex flex-1 items-center justify-center">
