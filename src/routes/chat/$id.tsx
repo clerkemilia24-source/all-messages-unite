@@ -10,6 +10,7 @@ import { ChatAvatar, useRemoteUrl } from '@/components/RemoteImage';
 import { Button } from '@/components/ui/button';
 
 export const Route = createFileRoute('/chat/$id')({
+  validateSearch: (search: Record<string, unknown>): { message?: string } => (typeof search['message'] === 'string' ? { message: search['message'] } : {}),
   head: () => ({ meta: [
     { title: 'Conversation — Ripple' }, { name: 'description', content: 'Your private Ripple conversation.' },
     { property: 'og:title', content: 'Conversation — Ripple' }, { property: 'og:description', content: 'Messages, photos and tapbacks with your people.' },
@@ -30,6 +31,7 @@ function Attachment({ message }: { message: MessageRow }) {
 
 function Conversation() {
   const { id } = Route.useParams();
+  const { message: targetMessage } = Route.useSearch();
   const { user, loading } = useAuth();
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
@@ -88,7 +90,10 @@ function Conversation() {
     document.addEventListener('visibilitychange', visible);
     return () => { void supabase.removeChannel(channel); clearInterval(poll); document.removeEventListener('visibilitychange', visible); void supabase.from('typing_status').delete().eq('conversation_id', id).eq('user_id', user.id); };
   }, [id, user, refresh]);
-  useEffect(() => { bottom.current?.scrollIntoView({ behavior: 'instant' }); }, [messages.length, typing.length]);
+  useEffect(() => {
+    if (targetMessage) document.getElementById(`message-${targetMessage}`)?.scrollIntoView({ behavior: 'instant', block: 'center' });
+    else bottom.current?.scrollIntoView({ behavior: 'instant' });
+  }, [messages.length, typing.length, targetMessage]);
 
   async function send() {
     if (!user || busy || (!body.trim() && !file)) return;
@@ -135,7 +140,7 @@ function Conversation() {
         const quoted = messages.find(x => x.id === m.reply_to);
         const rs = reactions.filter(r => r.message_id === m.id);
         const showDate = i === 0 || new Date(m.created_at).getTime() - new Date(messages[i - 1]?.created_at ?? 0).getTime() > 300000;
-        return <div key={m.id}>
+        return <div key={m.id} id={`message-${m.id}`} className={targetMessage === m.id ? 'rounded-lg ring-2 ring-primary' : undefined}>
           {showDate && <p className="my-5 text-center text-xs text-muted-foreground">{formatDivider(m.created_at)}</p>}
           <div className={`mb-2 flex flex-col ${own ? 'items-end' : 'items-start'}`}>
             {group && !own && <span className="mb-1 pl-3 text-xs text-muted-foreground">{profiles.find(p => p.id === m.sender_id)?.display_name}</span>}
