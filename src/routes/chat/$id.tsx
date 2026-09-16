@@ -10,7 +10,7 @@ import { ChatAvatar, useRemoteUrl } from '@/components/RemoteImage';
 import { Button } from '@/components/ui/button';
 
 export const Route = createFileRoute('/chat/$id')({
-  validateSearch: (search: Record<string, unknown>): { message?: string } => ({ message: typeof search.message === 'string' ? search.message : undefined }),
+  validateSearch: (search: Record<string, unknown>): { message?: string } => (typeof search['message'] === 'string' ? { message: search['message'] } : {}),
   head: () => ({ meta: [
     { title: 'Conversation — Ripple' }, { name: 'description', content: 'Your private Ripple conversation.' },
     { property: 'og:title', content: 'Conversation — Ripple' }, { property: 'og:description', content: 'Messages, photos and tapbacks with your people.' },
