@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as NewRouteImport } from './routes/new'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ChatIdRouteImport } from './routes/chat/$id'
+import { Route as ApiPublicCronStatusCleanupRouteImport } from './routes/api/public/cron/status-cleanup'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +41,12 @@ const ChatIdRoute = ChatIdRouteImport.update({
   path: '/chat/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCronStatusCleanupRoute =
+  ApiPublicCronStatusCleanupRouteImport.update({
+    id: '/api/public/cron/status-cleanup',
+    path: '/api/public/cron/status-cleanup',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +54,7 @@ export interface FileRoutesByFullPath {
   '/new': typeof NewRoute
   '/profile': typeof ProfileRoute
   '/chat/$id': typeof ChatIdRoute
+  '/api/public/cron/status-cleanup': typeof ApiPublicCronStatusCleanupRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +62,7 @@ export interface FileRoutesByTo {
   '/new': typeof NewRoute
   '/profile': typeof ProfileRoute
   '/chat/$id': typeof ChatIdRoute
+  '/api/public/cron/status-cleanup': typeof ApiPublicCronStatusCleanupRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +71,33 @@ export interface FileRoutesById {
   '/new': typeof NewRoute
   '/profile': typeof ProfileRoute
   '/chat/$id': typeof ChatIdRoute
+  '/api/public/cron/status-cleanup': typeof ApiPublicCronStatusCleanupRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/new' | '/profile' | '/chat/$id'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/new'
+    | '/profile'
+    | '/chat/$id'
+    | '/api/public/cron/status-cleanup'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/new' | '/profile' | '/chat/$id'
-  id: '__root__' | '/' | '/auth' | '/new' | '/profile' | '/chat/$id'
+  to:
+    | '/'
+    | '/auth'
+    | '/new'
+    | '/profile'
+    | '/chat/$id'
+    | '/api/public/cron/status-cleanup'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/new'
+    | '/profile'
+    | '/chat/$id'
+    | '/api/public/cron/status-cleanup'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +106,7 @@ export interface RootRouteChildren {
   NewRoute: typeof NewRoute
   ProfileRoute: typeof ProfileRoute
   ChatIdRoute: typeof ChatIdRoute
+  ApiPublicCronStatusCleanupRoute: typeof ApiPublicCronStatusCleanupRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +146,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/status-cleanup': {
+      id: '/api/public/cron/status-cleanup'
+      path: '/api/public/cron/status-cleanup'
+      fullPath: '/api/public/cron/status-cleanup'
+      preLoaderRoute: typeof ApiPublicCronStatusCleanupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -125,6 +162,7 @@ const rootRouteChildren: RootRouteChildren = {
   NewRoute: NewRoute,
   ProfileRoute: ProfileRoute,
   ChatIdRoute: ChatIdRoute,
+  ApiPublicCronStatusCleanupRoute: ApiPublicCronStatusCleanupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
