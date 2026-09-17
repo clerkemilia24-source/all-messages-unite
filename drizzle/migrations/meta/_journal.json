@@ -29,6 +29,20 @@
       "when": 1789430895698,
       "tag": "0003_selected_security_access_fixes",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789617095509,
+      "tag": "0004_status_calls_search",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789617147864,
+      "tag": "0005_status_bucket_policies",
+      "breakpoints": true
     }
   ]
 }

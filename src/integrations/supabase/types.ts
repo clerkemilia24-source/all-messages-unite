@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      call_sessions: {
+        Row: {
+          answered_at: string | null
+          conversation_id: string
+          created_at: string
+          ended_at: string | null
+          id: string
+          initiator_id: string
+          kind: string
+          room_name: string
+          status: string
+        }
+        Insert: {
+          answered_at?: string | null
+          conversation_id: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          initiator_id: string
+          kind: string
+          room_name: string
+          status?: string
+        }
+        Update: {
+          answered_at?: string | null
+          conversation_id?: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          initiator_id?: string
+          kind?: string
+          room_name?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_sessions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_members: {
         Row: {
           conversation_id: string
@@ -186,6 +230,68 @@ export type Database = {
           },
         ]
       }
+      status_posts: {
+        Row: {
+          author_id: string
+          background: string | null
+          body: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          kind: string
+          media_type: string | null
+          media_url: string | null
+        }
+        Insert: {
+          author_id: string
+          background?: string | null
+          body?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          kind: string
+          media_type?: string | null
+          media_url?: string | null
+        }
+        Update: {
+          author_id?: string
+          background?: string | null
+          body?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          kind?: string
+          media_type?: string | null
+          media_url?: string | null
+        }
+        Relationships: []
+      }
+      status_views: {
+        Row: {
+          status_id: string
+          viewed_at: string
+          viewer_id: string
+        }
+        Insert: {
+          status_id: string
+          viewed_at?: string
+          viewer_id: string
+        }
+        Update: {
+          status_id?: string
+          viewed_at?: string
+          viewer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "status_views_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "status_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       typing_status: {
         Row: {
           conversation_id: string
@@ -225,6 +331,8 @@ export type Database = {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       [_ in never]: never
