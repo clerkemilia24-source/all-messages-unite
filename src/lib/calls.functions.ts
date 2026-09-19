@@ -23,12 +23,37 @@ export const getCallToken = createServerFn({ method: "POST" })
       throw new Error("This call has already ended.");
     }
 
-    const apiKey = process.env["LIVEKIT_API_KEY"];
-    const apiSecret = process.env["LIVEKIT_API_SECRET"];
-    const wsUrl = process.env["LIVEKIT_WEBSOCKET_URL"];
-    if (!apiKey || !apiSecret || !wsUrl) throw new Error("Calling is not configured.");
+    const apiKey = process.env["LIVEKIT_API_KEY"]?.trim();
+    const apiSecret = process.env["LIVEKIT_API_SECRET"]?.trim();
+    const wsUrl = process.env["LIVEKIT_WEBSOCKET_URL"]?.trim();
+    const missing = [
+      !apiKey && "LIVEKIT_API_KEY",
+      !apiSecret && "LIVEKIT_API_SECRET",
+      !wsUrl && "LIVEKIT_WEBSOCKET_URL",
+    ].filter((name): name is string => Boolean(name));
+    if (missing.length) {
+      console.error("[calls] LiveKit configuration is missing", { missing });
+      throw new Error(`Calling is not configured: missing ${missing.join(", ")}.`);
+    }
+    if (!apiKey || !apiSecret || !wsUrl) {
+      throw new Error("Calling is not configured.");
+    }
 
-    const { AccessToken } = await import("livekit-server-sdk");
+    let liveKitUrl: URL;
+    try {
+      liveKitUrl = new URL(wsUrl);
+    } catch {
+      console.error("[calls] LiveKit URL is invalid", { wsUrl });
+      throw new Error("Calling is not configured: LIVEKIT_WEBSOCKET_URL is invalid.");
+    }
+    if (!["ws:", "wss:"].includes(liveKitUrl.protocol)) {
+      console.error("[calls] LiveKit URL must use ws or wss", {
+        protocol: liveKitUrl.protocol,
+      });
+      throw new Error("Calling is not configured: LIVEKIT_WEBSOCKET_URL must use ws:// or wss://.");
+    }
+
+    const { AccessToken, TokenVerifier } = await import("livekit-server-sdk");
     const token = new AccessToken(apiKey, apiSecret, {
       identity: context.userId,
       ttl: 120,
@@ -41,5 +66,7 @@ export const getCallToken = createServerFn({ method: "POST" })
       canPublishData: true,
     });
 
-    return { token: await token.toJwt(), url: wsUrl, kind: call.kind, roomName: call.room_name };
+    const jwt = await token.toJwt();
+    await new TokenVerifier(apiKey, apiSecret).verify(jwt);
+    return { token: jwt, url: liveKitUrl.toString(), kind: call.kind, roomName: call.room_name };
   });

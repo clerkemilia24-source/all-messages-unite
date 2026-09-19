@@ -105,6 +105,31 @@ function callErrorMessage(error: unknown) {
   return "The call could not be connected. Please try again.";
 }
 
+function logLiveKitConnectionError(error: unknown, url: string) {
+  const details =
+    typeof error === "object" && error !== null
+      ? {
+          name: "name" in error ? error.name : undefined,
+          code: "code" in error ? error.code : undefined,
+          message: "message" in error ? error.message : undefined,
+          reason: "reason" in error ? error.reason : undefined,
+          cause: "cause" in error ? error.cause : undefined,
+        }
+      : { value: error };
+  console.error("[calls] LiveKit room.connect failed", {
+    url,
+    protocol: (() => {
+      try {
+        return new URL(url).protocol;
+      } catch {
+        return "invalid";
+      }
+    })(),
+    ...details,
+    error,
+  });
+}
+
 export function CallProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [active, setActive] = useState<CallState | null>(null);
@@ -161,16 +186,16 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
       try {
         await room.connect(url, token);
-        await room.localParticipant.setMicrophoneEnabled(true);
-        if (call.kind === "video") {
-          await room.localParticipant.setCameraEnabled(true);
-          const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
-          const track = pub?.track as LocalTrack | undefined;
-          if (track && localVideo.current) track.attach(localVideo.current);
-        }
       } catch (error) {
-        console.error("[calls] LiveKit room connection failed", error);
+        logLiveKitConnectionError(error, url);
         throw error;
+      }
+      await room.localParticipant.setMicrophoneEnabled(true);
+      if (call.kind === "video") {
+        await room.localParticipant.setCameraEnabled(true);
+        const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
+        const track = pub?.track as LocalTrack | undefined;
+        if (track && localVideo.current) track.attach(localVideo.current);
       }
       setActive((s) => (s && s.call.id === call.id ? { ...s, connected: true } : s));
     },
