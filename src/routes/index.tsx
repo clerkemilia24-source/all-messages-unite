@@ -187,6 +187,8 @@ function Inbox() {
           })}
         </ul>
       )}
+
+      <BottomNav />
     </main>
   );
 }
