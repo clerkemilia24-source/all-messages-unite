@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ChevronRight, LogOut, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,10 +14,14 @@ export const Route = createFileRoute("/settings")({
       { title: "Settings — Ripple" },
       {
         name: "description",
-        content: "Control your privacy: read receipts, last seen, profile photo and status visibility.",
+        content:
+          "Control your privacy: read receipts, last seen, profile photo and status visibility.",
       },
       { property: "og:title", content: "Settings — Ripple" },
-      { property: "og:description", content: "Privacy and account settings for your Ripple profile." },
+      {
+        property: "og:description",
+        content: "Privacy and account settings for your Ripple profile.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -28,11 +32,65 @@ export const Route = createFileRoute("/settings")({
 type PrivacyKey = "read_receipts" | "last_seen_visible" | "photo_visible" | "status_visible";
 
 const TOGGLES: { key: PrivacyKey; label: string; hint: string }[] = [
-  { key: "read_receipts", label: "Read receipts", hint: "Let others see when you've read their messages." },
-  { key: "last_seen_visible", label: "Last seen & online", hint: "Show when you were last active." },
-  { key: "photo_visible", label: "Profile photo", hint: "Show your photo to people you chat with." },
+  {
+    key: "read_receipts",
+    label: "Read receipts",
+    hint: "Let others see when you've read their messages.",
+  },
+  {
+    key: "last_seen_visible",
+    label: "Last seen & online",
+    hint: "Show when you were last active.",
+  },
+  {
+    key: "photo_visible",
+    label: "Profile photo",
+    hint: "Show your photo to people you chat with.",
+  },
   { key: "status_visible", label: "Status updates", hint: "Let your chats see your status posts." },
 ];
+
+function SettingsSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <section>
+      <div className="px-2 pb-2">
+        <p className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {title}
+        </p>
+        <p className="mt-0.5 text-[13px] text-muted-foreground">{description}</p>
+      </div>
+      <div className="overflow-hidden rounded-xl bg-card">{children}</div>
+    </section>
+  );
+}
+
+function SettingsRow({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-3 px-4 py-3">
+      <span className="min-w-0 flex-1">
+        <span className="block text-[16px] text-foreground">{label}</span>
+        {hint && <span className="block text-[13px] text-muted-foreground">{hint}</span>}
+      </span>
+      {children}
+    </div>
+  );
+}
 
 function SettingsPage() {
   const { user, profile, loading, refreshProfile, signOut } = useAuth();
@@ -107,8 +165,20 @@ function SettingsPage() {
           <ChevronRight className="h-5 w-5 text-muted-foreground" />
         </Link>
 
-        <section>
-          <p className="px-2 pb-2 text-[13px] uppercase tracking-wide text-muted-foreground">Privacy</p>
+        <SettingsSection title="Account" description="Manage your profile and account activity.">
+          <Link to="/contacts" className="flex items-center px-4 py-3 text-[16px] text-foreground">
+            <span className="flex-1">Contacts</span>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </Link>
+          <div className="h-px bg-border" />
+          <Link to="/calls" className="flex items-center px-4 py-3 text-[16px] text-foreground">
+            <span className="flex-1">Call history</span>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </Link>
+          <p className="px-4 pb-3 text-[13px] text-muted-foreground">{user?.email}</p>
+        </SettingsSection>
+
+        <SettingsSection title="Privacy" description="Choose what other people can see about you.">
           <div className="overflow-hidden rounded-xl bg-card">
             {values === null ? (
               <div className="flex justify-center py-8">
@@ -134,23 +204,61 @@ function SettingsPage() {
               ))
             )}
           </div>
-        </section>
+        </SettingsSection>
 
-        <section>
-          <p className="px-2 pb-2 text-[13px] uppercase tracking-wide text-muted-foreground">Account</p>
-          <div className="overflow-hidden rounded-xl bg-card">
-            <Link to="/contacts" className="flex items-center px-4 py-3 text-[16px] text-foreground">
-              <span className="flex-1">Contacts</span>
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            </Link>
-            <div className="h-px bg-border" />
-            <Link to="/calls" className="flex items-center px-4 py-3 text-[16px] text-foreground">
-              <span className="flex-1">Call history</span>
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            </Link>
-          </div>
-          <p className="px-2 pt-2 text-[13px] text-muted-foreground">{user?.email}</p>
-        </section>
+        <SettingsSection
+          title="Chats"
+          description="Keep conversations comfortable and easy to scan."
+        >
+          <SettingsRow
+            label="Message appearance"
+            hint="Bubbles, media previews, and reply behavior"
+          />
+          <div className="h-px bg-border" />
+          <SettingsRow label="Archived chats" hint="Your archived conversations will appear here" />
+        </SettingsSection>
+
+        <SettingsSection
+          title="Notifications"
+          description="Control how new messages and calls reach you."
+        >
+          <SettingsRow
+            label="Message notifications"
+            hint="Notifications follow your browser settings"
+          />
+          <div className="h-px bg-border" />
+          <SettingsRow
+            label="Call notifications"
+            hint="Incoming calls remain enabled for active chats"
+          />
+        </SettingsSection>
+
+        <SettingsSection
+          title="Storage & Data"
+          description="Review media and data behavior for this device."
+        >
+          <SettingsRow label="Media downloads" hint="Attachments open from secure storage links" />
+          <div className="h-px bg-border" />
+          <SettingsRow label="Data usage" hint="Large media is limited to 25 MB per upload" />
+        </SettingsSection>
+
+        <SettingsSection
+          title="Accessibility"
+          description="Make Ripple easier to use with your device preferences."
+        >
+          <SettingsRow label="Motion" hint="Follows your browser's reduced-motion preference" />
+          <div className="h-px bg-border" />
+          <SettingsRow
+            label="Text size"
+            hint="Uses your browser and operating-system text settings"
+          />
+        </SettingsSection>
+
+        <SettingsSection title="Help" description="Find support and information about Ripple.">
+          <SettingsRow label="Help center" hint="Troubleshooting and account guidance" />
+          <div className="h-px bg-border" />
+          <SettingsRow label="About Ripple" hint="Private messaging, status, and calling" />
+        </SettingsSection>
 
         <button
           onClick={async () => {

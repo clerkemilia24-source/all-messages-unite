@@ -16,11 +16,15 @@ export type MessageRow = {
   body: string | null;
   attachment_url: string | null;
   attachment_type: string | null;
+  attachment_name: string | null;
+  attachment_size: number | null;
   reply_to: string | null;
   effect: string | null;
   created_at: string;
   edited_at: string | null;
   deleted_at: string | null;
+  media_duration: number | null;
+  media_kind: string | null;
 };
 
 export type ConversationSummary = {
@@ -90,7 +94,10 @@ export async function loadConversations(userId: string): Promise<ConversationSum
 
   const [{ data: convs }, { data: members }, { data: msgs }] = await Promise.all([
     supabase.from("conversations").select("id, is_group, name, last_message_at").in("id", ids),
-    supabase.from("conversation_members").select("conversation_id, user_id").in("conversation_id", ids),
+    supabase
+      .from("conversation_members")
+      .select("conversation_id, user_id")
+      .in("conversation_id", ids),
     supabase
       .from("messages")
       .select("*")
@@ -153,7 +160,9 @@ export async function findOrCreateDirect(userId: string, otherId: string): Promi
       .in("id", ids)
       .eq("is_group", false);
     for (const c of convs ?? []) {
-      const memberIds = (rows ?? []).filter((r) => r.conversation_id === c.id).map((r) => r.user_id);
+      const memberIds = (rows ?? [])
+        .filter((r) => r.conversation_id === c.id)
+        .map((r) => r.user_id);
       if (memberIds.length === 2 && memberIds.includes(otherId)) return c.id;
     }
   }
@@ -167,7 +176,7 @@ export async function createConversation(
   name: string | null,
 ): Promise<string> {
   const { data: conv, error } = await supabase.rpc("create_chat", {
-    _other_ids: otherIds.filter(id => id !== userId),
+    _other_ids: otherIds.filter((id) => id !== userId),
     _is_group: isGroup,
     _name: name ?? "",
   });

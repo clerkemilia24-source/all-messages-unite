@@ -1,6 +1,17 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, X, Loader2, Eye, Type as TypeIcon, Image as ImageIcon } from "lucide-react";
+import {
+  Plus,
+  X,
+  Loader2,
+  Eye,
+  Type as TypeIcon,
+  Image as ImageIcon,
+  Heart,
+  Send,
+  Bookmark,
+  VolumeX,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -37,11 +48,19 @@ type StatusPost = {
   background: string | null;
   created_at: string;
   expires_at: string;
+  audience_mode?: "contacts" | "except" | "only";
+  audience_ids?: string[];
+  is_highlighted?: boolean;
 };
 
 type Viewer = { viewer_id: string; viewed_at: string };
 
 const BACKGROUNDS = ["#0b84ff", "#34c759", "#ff375f", "#ff9500", "#5e5ce6"];
+const GRADIENTS = [
+  "linear-gradient(135deg, #0b84ff, #5e5ce6)",
+  "linear-gradient(135deg, #34c759, #0b84ff)",
+  "linear-gradient(135deg, #ff375f, #ff9500)",
+];
 
 function StatusPage() {
   const { user, profile, loading } = useAuth();
@@ -51,6 +70,7 @@ function StatusPage() {
   const [myViews, setMyViews] = useState<Set<string>>(new Set());
   const [composing, setComposing] = useState<null | "text" | "media">(null);
   const [viewing, setViewing] = useState<{ authorId: string; index: number } | null>(null);
+  const [mutedAuthors, setMutedAuthors] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!loading && !user) void navigate({ to: "/auth" });
@@ -64,7 +84,15 @@ function StatusPage() {
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: true });
     const rows = (data ?? []) as StatusPost[];
-    setPosts(rows);
+    const { data: muted } = await supabase
+      .from("status_mutes")
+      .select("muted_user_id")
+      .eq("user_id", user.id);
+    const mutedSet = new Set<string>(
+      (muted ?? []).map((row: { muted_user_id: string }) => row.muted_user_id),
+    );
+    setMutedAuthors(mutedSet);
+    setPosts(rows.filter((row) => !mutedSet.has(row.author_id)));
 
     const authorIds = Array.from(new Set(rows.map((r) => r.author_id)));
     if (authorIds.length) {
@@ -101,13 +129,12 @@ function StatusPage() {
     };
   }, [user, refresh]);
 
-  const mine = useMemo(
-    () => (posts ?? []).filter((p) => p.author_id === user?.id),
-    [posts, user],
-  );
+  const mine = useMemo(() => (posts ?? []).filter((p) => p.author_id === user?.id), [posts, user]);
 
   const groups = useMemo(() => {
-    const others = (posts ?? []).filter((p) => p.author_id !== user?.id);
+    const others = (posts ?? []).filter(
+      (p) => p.author_id !== user?.id && !mutedAuthors.has(p.author_id),
+    );
     const byAuthor = new Map<string, StatusPost[]>();
     others.forEach((p) => {
       const list = byAuthor.get(p.author_id) ?? [];
@@ -125,7 +152,7 @@ function StatusPage() {
         if (!!a.unviewed !== !!b.unviewed) return a.unviewed ? -1 : 1;
         return +new Date(b.latest.created_at) - +new Date(a.latest.created_at);
       });
-  }, [posts, user, myViews]);
+  }, [posts, user, myViews, mutedAuthors]);
 
   const viewerPosts = viewing
     ? viewing.authorId === user?.id
@@ -142,7 +169,9 @@ function StatusPage() {
       <section className="border-b border-border px-4 py-3">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => (mine.length ? setViewing({ authorId: user!.id, index: 0 }) : setComposing("text"))}
+            onClick={() =>
+              mine.length ? setViewing({ authorId: user!.id, index: 0 }) : setComposing("text")
+            }
             className="relative"
             aria-label={mine.length ? "View my status" : "Add status"}
           >
@@ -162,10 +191,20 @@ function StatusPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button size="icon" variant="secondary" aria-label="Add text status" onClick={() => setComposing("text")}>
+            <Button
+              size="icon"
+              variant="secondary"
+              aria-label="Add text status"
+              onClick={() => setComposing("text")}
+            >
               <TypeIcon className="h-4 w-4" />
             </Button>
-            <Button size="icon" variant="secondary" aria-label="Add photo or video status" onClick={() => setComposing("media")}>
+            <Button
+              size="icon"
+              variant="secondary"
+              aria-label="Add photo or video status"
+              onClick={() => setComposing("media")}
+            >
               <ImageIcon className="h-4 w-4" />
             </Button>
           </div>
@@ -200,7 +239,11 @@ function StatusPage() {
                         : "rounded-full p-0.5 ring-2 ring-border"
                     }
                   >
-                    <ChatAvatar name={p?.display_name ?? "Someone"} path={p?.avatar_url} size={48} />
+                    <ChatAvatar
+                      name={p?.display_name ?? "Someone"}
+                      path={p?.avatar_url}
+                      size={48}
+                    />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[17px] font-semibold text-foreground">
@@ -236,7 +279,10 @@ function StatusPage() {
           startIndex={viewing.index}
           author={
             viewing.authorId === user.id
-              ? { display_name: profile?.display_name ?? "Me", avatar_url: profile?.avatar_url ?? null }
+              ? {
+                  display_name: profile?.display_name ?? "Me",
+                  avatar_url: profile?.avatar_url ?? null,
+                }
               : {
                   display_name: profiles.get(viewing.authorId)?.display_name ?? "Someone",
                   avatar_url: profiles.get(viewing.authorId)?.avatar_url ?? null,
@@ -245,6 +291,15 @@ function StatusPage() {
           isMine={viewing.authorId === user.id}
           viewerId={user.id}
           onViewed={(id) => setMyViews((s) => new Set(s).add(id))}
+          onMuted={async () => {
+            if (!user || viewing.authorId === user.id) return;
+            await supabase
+              .from("status_mutes")
+              .insert({ user_id: user.id, muted_user_id: viewing.authorId });
+            setMutedAuthors((current) => new Set(current).add(viewing.authorId));
+            setViewing(null);
+            await refresh();
+          }}
           onClose={() => {
             setViewing(null);
             void refresh();
@@ -270,6 +325,8 @@ function Composer({
 }) {
   const [text, setText] = useState("");
   const [background, setBackground] = useState(BACKGROUNDS[0]!);
+  const [gradient, setGradient] = useState<string | null>(null);
+  const [audienceMode, setAudienceMode] = useState<"contacts" | "except" | "only">("contacts");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -287,7 +344,8 @@ function Composer({
           author_id: userId,
           kind: "text",
           body: text.trim(),
-          background,
+          background: gradient ?? background,
+          audience_mode: audienceMode,
         });
         if (error) throw error;
       } else {
@@ -321,7 +379,7 @@ function Composer({
         {mode === "text" ? (
           <div
             className="flex h-64 w-full items-center justify-center rounded-2xl p-6"
-            style={{ backgroundColor: background }}
+            style={{ backgroundColor: background, backgroundImage: gradient ?? undefined }}
           >
             <textarea
               value={text}
@@ -335,7 +393,11 @@ function Composer({
           file.type.startsWith("video/") ? (
             <video src={URL.createObjectURL(file)} controls className="max-h-[60vh] rounded-2xl" />
           ) : (
-            <img src={URL.createObjectURL(file)} alt="Selected status" className="max-h-[60vh] rounded-2xl" />
+            <img
+              src={URL.createObjectURL(file)}
+              alt="Selected status"
+              className="max-h-[60vh] rounded-2xl"
+            />
           )
         ) : (
           <p className="text-sm opacity-80">Choose a photo or video</p>
@@ -353,8 +415,31 @@ function Composer({
               style={{ backgroundColor: c }}
             />
           ))}
+          {GRADIENTS.map((value) => (
+            <button
+              key={value}
+              onClick={() => setGradient(value)}
+              aria-label="Gradient background"
+              className="h-8 w-8 rounded-full ring-2 ring-background/50"
+              style={{ backgroundImage: value }}
+            />
+          ))}
         </div>
       )}
+
+      <label className="mb-3 flex items-center justify-between gap-3 text-sm">
+        <span>Who can see this status?</span>
+        <select
+          value={audienceMode}
+          onChange={(event) => setAudienceMode(event.target.value as typeof audienceMode)}
+          className="rounded-lg bg-background/15 px-2 py-1 text-sm text-background"
+          aria-label="Status audience"
+        >
+          <option value="contacts">My Contacts</option>
+          <option value="except">My Contacts Except…</option>
+          <option value="only">Only Share With…</option>
+        </select>
+      </label>
 
       <input
         ref={fileInput}
@@ -364,7 +449,10 @@ function Composer({
         onChange={(e) => setFile(e.target.files?.[0] ?? null)}
       />
 
-      <Button onClick={() => void publish()} disabled={busy || (mode === "text" ? !text.trim() : !file)}>
+      <Button
+        onClick={() => void publish()}
+        disabled={busy || (mode === "text" ? !text.trim() : !file)}
+      >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Share status"}
       </Button>
     </div>
@@ -378,6 +466,7 @@ function StatusViewer({
   isMine,
   viewerId,
   onViewed,
+  onMuted,
   onClose,
 }: {
   posts: StatusPost[];
@@ -386,6 +475,7 @@ function StatusViewer({
   isMine: boolean;
   viewerId: string;
   onViewed: (id: string) => void;
+  onMuted: () => Promise<void>;
   onClose: () => void;
 }) {
   const [index, setIndex] = useState(startIndex);
@@ -394,8 +484,40 @@ function StatusViewer({
   const [viewers, setViewers] = useState<Viewer[] | null>(null);
   const [showViewers, setShowViewers] = useState(false);
   const [viewerProfiles, setViewerProfiles] = useState<Map<string, ProfileLite>>(new Map());
+  const [reaction, setReaction] = useState<string | null>(null);
+  const [reply, setReply] = useState("");
+  const [showReply, setShowReply] = useState(false);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
   const post = posts[Math.min(index, posts.length - 1)]!;
   const mediaUrl = useRemoteUrl("status", post.kind === "text" ? null : post.media_url);
+  const nextMediaUrl = useRemoteUrl("status", posts[index + 1]?.media_url ?? null);
+
+  async function reactToStatus(emoji: string) {
+    setReaction(emoji);
+    await supabase
+      .from("status_reactions")
+      .upsert(
+        { status_id: post.id, user_id: viewerId, emoji },
+        { onConflict: "status_id,user_id" },
+      );
+  }
+
+  async function sendReply() {
+    if (!reply.trim()) return;
+    await supabase.from("status_replies").insert({
+      status_id: post.id,
+      sender_id: viewerId,
+      body: reply.trim(),
+    });
+    setReply("");
+    setShowReply(false);
+    toast.success("Private reply sent");
+  }
+
+  async function saveHighlight() {
+    await supabase.from("status_highlights").upsert({ user_id: viewerId, status_id: post.id });
+    toast.success("Saved to highlights");
+  }
 
   // Record the view (own statuses are never recorded as views).
   useEffect(() => {
@@ -423,7 +545,10 @@ function StatusViewer({
         const { data: profs } = await supabase
           .from("profiles")
           .select("id, username, display_name, avatar_url, status_text, last_seen")
-          .in("id", rows.map((r) => r.viewer_id));
+          .in(
+            "id",
+            rows.map((r) => r.viewer_id),
+          );
         if (!active) return;
         const map = new Map<string, ProfileLite>();
         (profs ?? []).forEach((p) => map.set(p.id, p as ProfileLite));
@@ -468,7 +593,9 @@ function StatusViewer({
       <div className="flex items-center gap-3 px-4 py-3">
         <ChatAvatar name={author.display_name} path={author.avatar_url} size={36} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{isMine ? "My status" : author.display_name}</p>
+          <p className="truncate text-sm font-semibold">
+            {isMine ? "My status" : author.display_name}
+          </p>
           <p className="text-xs opacity-70">{formatListTime(post.created_at)}</p>
         </div>
         <button onClick={onClose} aria-label="Close status">
@@ -478,8 +605,18 @@ function StatusViewer({
 
       <div
         className="relative flex flex-1 items-center justify-center"
-        onPointerDown={() => setPaused(true)}
-        onPointerUp={() => setPaused(false)}
+        onPointerDown={(event) => {
+          setTouchStart(event.clientX);
+          setPaused(true);
+        }}
+        onPointerUp={(event) => {
+          if (touchStart !== null && Math.abs(event.clientX - touchStart) > 48) {
+            if (event.clientX < touchStart && index < posts.length - 1) setIndex((i) => i + 1);
+            if (event.clientX > touchStart && index > 0) setIndex((i) => i - 1);
+          }
+          setTouchStart(null);
+          setPaused(false);
+        }}
         onPointerLeave={() => setPaused(false)}
       >
         <button
@@ -495,18 +632,79 @@ function StatusViewer({
         {post.kind === "text" ? (
           <div
             className="mx-4 flex min-h-64 w-full items-center justify-center rounded-2xl p-8 text-center text-2xl font-semibold"
-            style={{ backgroundColor: post.background ?? BACKGROUNDS[0]! }}
+            style={
+              post.background?.startsWith("linear-gradient")
+                ? { backgroundImage: post.background }
+                : { backgroundColor: post.background ?? BACKGROUNDS[0]! }
+            }
           >
             {post.body}
           </div>
         ) : !mediaUrl ? (
           <Loader2 className="h-6 w-6 animate-spin" />
         ) : post.kind === "video" ? (
-          <video src={mediaUrl} autoPlay playsInline controls={false} className="max-h-full w-full object-contain" />
+          <video
+            src={mediaUrl}
+            autoPlay
+            playsInline
+            controls={false}
+            className="max-h-full w-full object-contain"
+          />
         ) : (
           <img src={mediaUrl} alt="Status" className="max-h-full w-full object-contain" />
         )}
+        {nextMediaUrl && <img src={nextMediaUrl} alt="" aria-hidden className="hidden" />}
       </div>
+
+      {!isMine && (
+        <div className="space-y-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex gap-1">
+              {["❤️", "👍", "😂", "😮", "😢"].map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => void reactToStatus(emoji)}
+                  aria-label={`React ${emoji}`}
+                  className={`rounded-full px-2 py-1 text-lg ${reaction === emoji ? "bg-white/25" : ""}`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setShowReply((value) => !value)} aria-label="Reply privately">
+                <Send className="h-5 w-5" />
+              </button>
+              <button onClick={() => void saveHighlight()} aria-label="Save status to highlights">
+                <Bookmark className="h-5 w-5" />
+              </button>
+              <button onClick={() => void onMuted()} aria-label="Mute this person's status">
+                <VolumeX className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+          {showReply && (
+            <form
+              className="flex gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void sendReply();
+              }}
+            >
+              <input
+                value={reply}
+                onChange={(event) => setReply(event.target.value)}
+                placeholder="Private reply"
+                aria-label="Private reply"
+                className="min-w-0 flex-1 rounded-full bg-white/15 px-4 py-2 text-sm outline-none placeholder:text-white/60"
+              />
+              <button type="submit" aria-label="Send private reply">
+                <Send className="h-5 w-5" />
+              </button>
+            </form>
+          )}
+        </div>
+      )}
 
       {isMine && (
         <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
