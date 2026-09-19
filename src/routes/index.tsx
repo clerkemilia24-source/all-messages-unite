@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useServerFn } from '@tanstack/react-start';
 import { searchMessages } from '@/lib/search.functions';
 import { Button } from '@/components/ui/button';
+import { BottomNav } from '@/components/BottomNav';
 import {
   loadConversations,
   conversationTitle,
@@ -131,16 +132,22 @@ function Inbox() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center px-10 text-center">
-          <p className="text-lg font-semibold text-foreground">No conversations yet</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Start a chat with someone by their username.
+          <p className="text-lg font-semibold text-foreground">
+            {q.trim() ? "No matching chats" : "No conversations yet"}
           </p>
-          <Link
-            to="/new"
-            className="mt-5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
-          >
-            New message
-          </Link>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {q.trim()
+              ? "Try a different name or word."
+              : "Start a chat with someone by their username."}
+          </p>
+          {!q.trim() && (
+            <Link
+              to="/new"
+              className="mt-5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+            >
+              New message
+            </Link>
+          )}
         </div>
       ) : (
         <ul className="flex-1 divide-y divide-border">
@@ -181,6 +188,8 @@ function Inbox() {
           })}
         </ul>
       )}
+
+      <BottomNav />
     </main>
   );
 }

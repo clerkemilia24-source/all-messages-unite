@@ -43,6 +43,13 @@
       "when": 1789617147864,
       "tag": "0005_status_bucket_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789777874809,
+      "tag": "0006_profile_privacy_settings",
+      "breakpoints": true
     }
   ]
 }
