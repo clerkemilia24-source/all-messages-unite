@@ -112,10 +112,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
       const current = active;
       await teardown();
       if (!current) return;
-      const patch: Record<string, string> = { status, ended_at: new Date().toISOString() };
       await supabase
         .from("call_sessions")
-        .update(patch)
+        .update({ status, ended_at: new Date().toISOString() })
         .eq("id", current.call.id)
         .in("status", ["ringing", "accepted"]);
     },
