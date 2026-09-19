@@ -2,6 +2,16 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+type RuntimeEnvironment = Record<string, unknown>;
+
+function getRuntimeEnvironmentValue(name: string) {
+  const runtimeEnvironment = (globalThis as typeof globalThis & { __env__?: RuntimeEnvironment })
+    .__env__;
+  const processValue = process.env[name];
+  const runtimeValue = runtimeEnvironment?.[name];
+  return (processValue ?? runtimeValue) as string | undefined;
+}
+
 /**
  * Issues a short-lived LiveKit token for a call the caller is actually a member of.
  * The room name never comes from the client: it is read from the database row,
@@ -23,9 +33,9 @@ export const getCallToken = createServerFn({ method: "POST" })
       throw new Error("This call has already ended.");
     }
 
-    const apiKey = process.env["LIVEKIT_API_KEY"]?.trim();
-    const apiSecret = process.env["LIVEKIT_API_SECRET"]?.trim();
-    const wsUrl = process.env["LIVEKIT_WEBSOCKET_URL"]?.trim();
+    const apiKey = getRuntimeEnvironmentValue("LIVEKIT_API_KEY")?.trim();
+    const apiSecret = getRuntimeEnvironmentValue("LIVEKIT_API_SECRET")?.trim();
+    const wsUrl = getRuntimeEnvironmentValue("LIVEKIT_WEBSOCKET_URL")?.trim();
     const missing = [
       !apiKey && "LIVEKIT_API_KEY",
       !apiSecret && "LIVEKIT_API_SECRET",
