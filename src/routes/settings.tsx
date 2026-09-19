@@ -66,7 +66,15 @@ function SettingsPage() {
     const previous = values[key];
     setValues({ ...values, [key]: next });
     setBusy(key);
-    const { error } = await supabase.from("profiles").update({ [key]: next }).eq("id", user.id);
+    const patch =
+      key === "read_receipts"
+        ? { read_receipts: next }
+        : key === "last_seen_visible"
+          ? { last_seen_visible: next }
+          : key === "photo_visible"
+            ? { photo_visible: next }
+            : { status_visible: next };
+    const { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
     setBusy(null);
     if (error) {
       setValues({ ...values, [key]: previous });
