@@ -178,7 +178,11 @@ export type Database = {
           display_name: string
           id: string
           last_seen: string
+          last_seen_visible: boolean
+          photo_visible: boolean
+          read_receipts: boolean
           status_text: string | null
+          status_visible: boolean
           username: string
         }
         Insert: {
@@ -187,7 +191,11 @@ export type Database = {
           display_name: string
           id: string
           last_seen?: string
+          last_seen_visible?: boolean
+          photo_visible?: boolean
+          read_receipts?: boolean
           status_text?: string | null
+          status_visible?: boolean
           username: string
         }
         Update: {
@@ -196,7 +204,11 @@ export type Database = {
           display_name?: string
           id?: string
           last_seen?: string
+          last_seen_visible?: boolean
+          photo_visible?: boolean
+          read_receipts?: boolean
           status_text?: string | null
+          status_visible?: boolean
           username?: string
         }
         Relationships: []
