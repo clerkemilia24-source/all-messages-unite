@@ -47,6 +47,64 @@ export const useCalls = () => useContext(CallsContext);
 
 const RING_TIMEOUT_MS = 45_000;
 
+class CallMediaError extends Error {
+  readonly kind: CallKind;
+  readonly originalError: unknown;
+
+  constructor(kind: CallKind, originalError: unknown) {
+    super("Call media access failed");
+    this.kind = kind;
+    this.originalError = originalError;
+    this.name = "CallMediaError";
+  }
+}
+
+function isPermissionDenied(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    ["NotAllowedError", "PermissionDeniedError", "SecurityError"].includes(String(error.name))
+  );
+}
+
+async function requestCallMedia(kind: CallKind) {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new CallMediaError(kind, new Error("Media devices are unavailable."));
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: kind === "video",
+    });
+    stream.getTracks().forEach((track) => track.stop());
+  } catch (error) {
+    throw new CallMediaError(kind, error);
+  }
+}
+
+function callErrorMessage(error: unknown) {
+  if (error instanceof CallMediaError) {
+    if (isPermissionDenied(error.originalError)) {
+      return error.kind === "video"
+        ? "Microphone and camera access is blocked. Allow both in your browser settings, then try again."
+        : "Microphone access is blocked. Allow it in your browser settings, then try again.";
+    }
+    if (
+      typeof error.originalError === "object" &&
+      error.originalError !== null &&
+      "name" in error.originalError &&
+      String(error.originalError.name) === "NotFoundError"
+    ) {
+      return error.kind === "video"
+        ? "No microphone or camera was found. Connect a device, then try again."
+        : "No microphone was found. Connect one, then try again.";
+    }
+  }
+  return "The call could not be connected. Please try again.";
+}
+
 export function CallProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [active, setActive] = useState<CallState | null>(null);
@@ -71,7 +129,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
   const connect = useCallback(
     async (call: CallRow) => {
-      const { token, url } = await getCallToken({ data: { callId: call.id } });
+      let token: string;
+      let url: string;
+      try {
+        ({ token, url } = await getCallToken({ data: { callId: call.id } }));
+      } catch (error) {
+        console.error("[calls] Failed to get LiveKit token", error);
+        throw error;
+      }
       const { Room: LKRoom, RoomEvent, Track } = await import("livekit-client");
       const room = new LKRoom({ adaptiveStream: true, dynacast: true });
       roomRef.current = room;
@@ -94,13 +159,18 @@ export function CallProvider({ children }: { children: ReactNode }) {
         void teardown();
       });
 
-      await room.connect(url, token);
-      await room.localParticipant.setMicrophoneEnabled(true);
-      if (call.kind === "video") {
-        await room.localParticipant.setCameraEnabled(true);
-        const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
-        const track = pub?.track as LocalTrack | undefined;
-        if (track && localVideo.current) track.attach(localVideo.current);
+      try {
+        await room.connect(url, token);
+        await room.localParticipant.setMicrophoneEnabled(true);
+        if (call.kind === "video") {
+          await room.localParticipant.setCameraEnabled(true);
+          const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
+          const track = pub?.track as LocalTrack | undefined;
+          if (track && localVideo.current) track.attach(localVideo.current);
+        }
+      } catch (error) {
+        console.error("[calls] LiveKit room connection failed", error);
+        throw error;
       }
       setActive((s) => (s && s.call.id === call.id ? { ...s, connected: true } : s));
     },
@@ -125,6 +195,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     async (conversationId: string, kind: CallKind, peerName: string) => {
       if (!user) return;
       try {
+        await requestCallMedia(kind);
         const { data, error } = await supabase
           .from("call_sessions")
           .insert({
@@ -147,8 +218,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
             .eq("status", "ringing")
             .then(() => teardown());
         }, RING_TIMEOUT_MS);
-      } catch {
-        toast.error("The call could not be started. Check your microphone permission.");
+      } catch (error) {
+        console.error("[calls] Outgoing call failed", error);
+        toast.error(callErrorMessage(error));
         await teardown();
       }
     },
@@ -209,13 +281,17 @@ export function CallProvider({ children }: { children: ReactNode }) {
   async function accept() {
     if (!active) return;
     try {
+      await requestCallMedia(active.call.kind);
       await supabase
         .from("call_sessions")
         .update({ status: "accepted", answered_at: new Date().toISOString() })
         .eq("id", active.call.id);
       await connect(active.call);
-    } catch {
-      toast.error("Could not join the call.");
+    } catch (error) {
+      console.error("[calls] Incoming call failed", error);
+      toast.error(
+        error instanceof CallMediaError ? callErrorMessage(error) : "Could not join the call.",
+      );
       await endCall("ended");
     }
   }
