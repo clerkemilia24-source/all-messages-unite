@@ -49,6 +49,12 @@ export const getCallToken = createServerFn({ method: "POST" })
       throw new Error("Calling is not configured.");
     }
 
+    console.info("[calls] LiveKit runtime configuration detected", {
+      apiKeyPresent: apiKey.length > 0,
+      apiSecretPresent: apiSecret.length > 0,
+      websocketUrl: wsUrl,
+    });
+
     let liveKitUrl: URL;
     try {
       liveKitUrl = new URL(wsUrl);
@@ -78,5 +84,12 @@ export const getCallToken = createServerFn({ method: "POST" })
 
     const jwt = await token.toJwt();
     await new TokenVerifier(apiKey, apiSecret).verify(jwt);
+    console.info("[calls] LiveKit token generated and verified", {
+      userId: context.userId,
+      callId: call.id,
+      roomName: call.room_name,
+      expiresInSeconds: 120,
+      websocketUrl: liveKitUrl.toString(),
+    });
     return { token: jwt, url: liveKitUrl.toString(), kind: call.kind, roomName: call.room_name };
   });

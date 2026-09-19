@@ -130,6 +130,27 @@ function logLiveKitConnectionError(error: unknown, url: string) {
   });
 }
 
+function logTokenRequestError(error: unknown) {
+  if (error instanceof Response) {
+    console.error("[calls] LiveKit token request failed", {
+      status: error.status,
+      statusText: error.statusText,
+      url: error.url,
+    });
+    return;
+  }
+  const details =
+    typeof error === "object" && error !== null
+      ? {
+          name: "name" in error ? error.name : undefined,
+          message: "message" in error ? error.message : undefined,
+          status: "status" in error ? error.status : undefined,
+          cause: "cause" in error ? error.cause : undefined,
+        }
+      : { value: error };
+  console.error("[calls] LiveKit token request failed", details);
+}
+
 export function CallProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [active, setActive] = useState<CallState | null>(null);
@@ -159,7 +180,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       try {
         ({ token, url } = await getCallToken({ data: { callId: call.id } }));
       } catch (error) {
-        console.error("[calls] Failed to get LiveKit token", error);
+        logTokenRequestError(error);
         throw error;
       }
       const { Room: LKRoom, RoomEvent, Track } = await import("livekit-client");
