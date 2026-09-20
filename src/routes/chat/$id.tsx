@@ -163,22 +163,19 @@ function Conversation() {
 
   const refresh = useCallback(async () => {
     if (!user) return;
-    const [conv, rows, membership, calls] = await Promise.all([
+    const [conv, rows, membership] = await Promise.all([
       supabase.from("conversations").select("name, is_group").eq("id", id).single(),
       supabase
         .from("messages")
-        .select("*")
+        .select(
+          "id, conversation_id, sender_id, body, attachment_url, attachment_type, reply_to, effect, created_at, edited_at, deleted_at",
+        )
         .eq("conversation_id", id)
         .order("created_at", { ascending: true }),
       supabase
         .from("conversation_members")
         .select("user_id, last_read_at")
         .eq("conversation_id", id),
-      supabase
-        .from("call_sessions")
-        .select("*")
-        .eq("conversation_id", id)
-        .order("created_at", { ascending: true }),
     ]);
     if (conv.error || rows.error || membership.error) {
       setError("This conversation could not be loaded.");
@@ -204,8 +201,21 @@ function Conversation() {
           .join(", ") ||
         "You",
     );
-    setMessages(rows.data);
-    setCallEntries((calls.data ?? []) as CallRow[]);
+    setMessages(
+      (rows.data ?? []).map((row) => ({
+        ...row,
+        attachment_name: null,
+        attachment_size: null,
+        media_duration: null,
+        media_kind: null,
+      })) as MessageRow[],
+    );
+    const { data: calls, error: callsError } = await supabase
+      .from("call_sessions")
+      .select("*")
+      .eq("conversation_id", id)
+      .order("created_at", { ascending: true });
+    if (!callsError) setCallEntries((calls ?? []) as CallRow[]);
     setError("");
     setReady(true);
     if (rows.data.length) {
@@ -288,6 +298,10 @@ function Conversation() {
     if (!user || busy || (!body.trim() && !file)) return;
     setBusy(true);
     try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.user?.id || session.session.user.id !== user.id) {
+        throw new Error("Your session expired. Sign in again to send messages.");
+      }
       if (editing) {
         const { error } = await supabase
           .from("messages")
