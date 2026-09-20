@@ -18,6 +18,9 @@ import {
   Forward,
   CheckCheck,
   Play,
+  Phone,
+  PhoneCall,
+  Video,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +29,7 @@ import { type MessageRow, type ProfileLite, formatDivider } from "@/lib/chat";
 import { uploadFile } from "@/lib/storage";
 import { ChatAvatar, useRemoteUrl } from "@/components/RemoteImage";
 import { Button } from "@/components/ui/button";
+import { useCalls, type CallRow } from "@/lib/calls";
 
 export const Route = createFileRoute("/chat/$id")({
   validateSearch: (search: Record<string, unknown>): { message?: string } =>
@@ -45,6 +49,43 @@ export const Route = createFileRoute("/chat/$id")({
 
 type Reaction = { message_id: string; user_id: string; emoji: string };
 type Member = { user_id: string; last_read_at: string };
+
+function CallEntry({ call, onCallBack }: { call: CallRow; onCallBack: () => void }) {
+  const outgoing = call.status === "ended" || call.status === "missed";
+  const Icon = call.kind === "video" ? Video : Phone;
+  const label =
+    call.status === "declined"
+      ? "Declined"
+      : call.status === "missed"
+        ? "Missed"
+        : call.status === "ended"
+          ? "Call ended"
+          : "Call";
+  return (
+    <div className="my-3 flex justify-center">
+      <div className="flex items-center gap-3 rounded-2xl bg-white/80 px-4 py-2.5 text-sm text-slate-600 shadow-sm dark:bg-slate-900/80 dark:text-slate-300">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#e8f0ff] text-[#2a6df6] dark:bg-blue-950">
+          <Icon className="h-4 w-4" />
+        </span>
+        <span>
+          <span className="block font-medium">{label}</span>
+          <span className="flex items-center gap-1 text-xs text-slate-400">
+            {outgoing ? <PhoneCall className="h-3 w-3" /> : <Phone className="h-3 w-3" />}
+            {call.kind === "video" ? "Video" : "Voice"} · {formatDivider(call.created_at)}
+          </span>
+        </span>
+        <button
+          type="button"
+          onClick={onCallBack}
+          aria-label="Call back"
+          className="rounded-full p-2 text-[#2a6df6] hover:bg-[#e8f0ff]"
+        >
+          <PhoneCall className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
 function Attachment({ message }: { message: MessageRow }) {
   const url = useRemoteUrl("attachments", message.attachment_url);
   if (!url) return <span className="text-sm">Loading attachment…</span>;
@@ -57,11 +98,9 @@ function Attachment({ message }: { message: MessageRow }) {
           className="max-h-80 w-full rounded-xl object-contain"
           loading="lazy"
         />
-      ) : message.attachment_type?.startsWith("video/") ? (
-        <video src={url} controls playsInline className="max-h-80 w-full rounded-xl" />
       ) : message.media_kind === "voice" ? (
         <span className="flex items-center gap-3 rounded-xl bg-secondary px-3 py-3">
-          <Play className="h-5 w-5" />
+          <audio src={url} controls className="h-8 max-w-full" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium">Voice message</span>
             <span className="text-xs text-muted-foreground">
@@ -71,6 +110,8 @@ function Attachment({ message }: { message: MessageRow }) {
         </span>
       ) : message.media_kind === "video-note" ? (
         <video src={url} controls playsInline className="h-44 w-44 rounded-full object-cover" />
+      ) : message.attachment_type?.startsWith("video/") ? (
+        <video src={url} controls playsInline className="max-h-80 w-full rounded-xl" />
       ) : (
         <span className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-3">
           <File className="h-5 w-5" />
@@ -92,7 +133,9 @@ function Conversation() {
   const { id } = Route.useParams();
   const { message: targetMessage } = Route.useSearch();
   const { user, loading } = useAuth();
+  const { startCall } = useCalls();
   const [messages, setMessages] = useState<MessageRow[]>([]);
+  const [callEntries, setCallEntries] = useState<CallRow[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [title, setTitle] = useState("Conversation");
@@ -120,7 +163,7 @@ function Conversation() {
 
   const refresh = useCallback(async () => {
     if (!user) return;
-    const [conv, rows, membership] = await Promise.all([
+    const [conv, rows, membership, calls] = await Promise.all([
       supabase.from("conversations").select("name, is_group").eq("id", id).single(),
       supabase
         .from("messages")
@@ -131,6 +174,11 @@ function Conversation() {
         .from("conversation_members")
         .select("user_id, last_read_at")
         .eq("conversation_id", id),
+      supabase
+        .from("call_sessions")
+        .select("*")
+        .eq("conversation_id", id)
+        .order("created_at", { ascending: true }),
     ]);
     if (conv.error || rows.error || membership.error) {
       setError("This conversation could not be loaded.");
@@ -157,6 +205,7 @@ function Conversation() {
         "You",
     );
     setMessages(rows.data);
+    setCallEntries((calls.data ?? []) as CallRow[]);
     setError("");
     setReady(true);
     if (rows.data.length) {
@@ -248,18 +297,27 @@ function Conversation() {
         if (error) throw error;
       } else {
         const path = file ? await uploadFile("attachments", user.id, file) : null;
-        const { error } = await supabase.from("messages").insert({
+        const baseMessage = {
           conversation_id: id,
           sender_id: user.id,
           body: body.trim() || null,
           attachment_url: path,
           attachment_type: file?.type || null,
-          attachment_name: file?.name ?? null,
-          attachment_size: file?.size ?? null,
-          media_duration: null,
-          media_kind: null,
           reply_to: reply?.id ?? null,
-        });
+        };
+        let result = file
+          ? await supabase.from("messages").insert({
+              ...baseMessage,
+              attachment_name: file.name,
+              attachment_size: file.size,
+              media_duration: null,
+              media_kind: null,
+            })
+          : await supabase.from("messages").insert(baseMessage);
+        if (result.error && file && isMissingMessageMetadataError(result.error)) {
+          result = await supabase.from("messages").insert(baseMessage);
+        }
+        const { error } = result;
         if (error) throw error;
       }
       setBody("");
@@ -272,11 +330,26 @@ function Conversation() {
         .eq("conversation_id", id)
         .eq("user_id", user.id);
       await refresh();
-    } catch {
-      toast.error("Message could not be sent. Please try again.");
+    } catch (error) {
+      console.error("[chat] Message send failed", error);
+      toast.error(
+        error instanceof Error
+          ? `Message could not be sent: ${error.message}`
+          : "Message could not be sent. Please try again.",
+      );
     } finally {
       setBusy(false);
     }
+  }
+
+  function isMissingMessageMetadataError(error: { message?: string | null }) {
+    const message = error.message?.toLowerCase() ?? "";
+    return (
+      message.includes("schema cache") ||
+      message.includes("column") ||
+      message.includes("attachment_name") ||
+      message.includes("media_kind")
+    );
   }
 
   async function startRecording(kind: "voice" | "video-note") {
@@ -303,10 +376,16 @@ function Conversation() {
     const mediaRecorder = recorder.current;
     const kind = recording;
     if (!mediaRecorder || !kind || !user) return;
-    mediaRecorder.stop();
-    await new Promise((resolve) => setTimeout(resolve, 80));
-    const blob = new Blob(recordedChunks.current, {
-      type: mediaRecorder.mimeType || (kind === "voice" ? "audio/webm" : "video/webm"),
+    const blob = await new Promise<Blob>((resolve) => {
+      const finish = () =>
+        resolve(
+          new Blob(recordedChunks.current, {
+            type: mediaRecorder.mimeType || (kind === "voice" ? "audio/webm" : "video/webm"),
+          }),
+        );
+      mediaRecorder.addEventListener("stop", finish, { once: true });
+      if (mediaRecorder.state === "recording") mediaRecorder.stop();
+      else finish();
     });
     const file = new globalThis.File([blob], `${kind}-${crypto.randomUUID()}.webm`, {
       type: blob.type,
@@ -314,7 +393,7 @@ function Conversation() {
     setRecording(null);
     try {
       const path = await uploadFile("attachments", user.id, file);
-      const { error } = await supabase.from("messages").insert({
+      const richMessage = {
         conversation_id: id,
         sender_id: user.id,
         body: null,
@@ -325,8 +404,19 @@ function Conversation() {
         media_duration: Math.max(1, Math.round((Date.now() - recordStarted.current) / 1000)),
         media_kind: kind,
         reply_to: reply?.id ?? null,
-      });
-      if (error) throw error;
+      };
+      let result = await supabase.from("messages").insert(richMessage);
+      if (result.error && isMissingMessageMetadataError(result.error)) {
+        result = await supabase.from("messages").insert({
+          conversation_id: id,
+          sender_id: user.id,
+          body: null,
+          attachment_url: path,
+          attachment_type: file.type,
+          reply_to: reply?.id ?? null,
+        });
+      }
+      if (result.error) throw result.error;
       setReply(null);
       await refresh();
     } catch {
@@ -400,21 +490,48 @@ function Conversation() {
   const other = profiles.find((p) => p.id !== user?.id);
   const lastOutgoing = messages.filter((m) => m.sender_id === user?.id).at(-1)?.id;
   return (
-    <main className="mx-auto flex h-dvh w-full max-w-2xl flex-col bg-background">
-      <header className="relative flex shrink-0 items-center justify-center border-b border-border bg-chrome px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-xl">
-        <Button asChild variant="ghost" size="icon" className="absolute left-2 text-primary">
+    <main className="mx-auto flex h-dvh w-full max-w-2xl flex-col bg-[#edf3fb] text-slate-900 dark:bg-[#0c1220] dark:text-slate-100">
+      <header className="relative flex shrink-0 items-center justify-between border-b border-[#dfe9ff] bg-[#2a6df6] px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white shadow-[0_10px_25px_rgba(42,109,246,0.22)]">
+        <Button
+          asChild
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-full bg-white/10 text-white hover:bg-white/15"
+        >
           <Link to="/" aria-label="Back to messages">
-            <ChevronLeft />
+            <ChevronLeft className="h-5 w-5" />
           </Link>
         </Button>
-        <div className="flex max-w-[75%] flex-col items-center gap-1">
-          <ChatAvatar name={title} path={group ? null : other?.avatar_url} size={40} />
-          <h1 className="w-full truncate text-sm font-semibold">
-            {title} {!group && <span aria-label="Favorite contact">★</span>}
-          </h1>
+        <div className="flex min-w-0 flex-1 items-center justify-center gap-3">
+          <div className="relative shrink-0">
+            <ChatAvatar name={title} path={group ? null : other?.avatar_url} size={40} />
+            {!group && (
+              <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1 text-left">
+            <h1 className="truncate text-[15px] font-semibold tracking-[0.01em]">
+              {title}
+              {!group && <span className="ml-1 text-[11px] text-white/80">★</span>}
+            </h1>
+            <p className="truncate text-[11px] text-white/75">
+              {typing.length > 0 ? "typing…" : "online"}
+            </p>
+          </div>
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-full bg-white/10 text-white hover:bg-white/15"
+          aria-label="Conversation options"
+        >
+          <MoreHorizontal className="h-5 w-5" />
+        </Button>
       </header>
-      <section aria-label="Messages" className="flex-1 overflow-y-auto px-4 py-5">
+      <section
+        aria-label="Messages"
+        className="flex-1 overflow-y-auto bg-[#edf3fb] px-4 py-5 dark:bg-[#0c1220]"
+      >
         {!ready ? (
           <Loader2 className="mx-auto animate-spin text-muted-foreground" />
         ) : error ? (
@@ -427,6 +544,13 @@ function Conversation() {
         ) : messages.length === 0 ? (
           <p className="py-10 text-center text-sm text-muted-foreground">No messages yet</p>
         ) : null}
+        {callEntries.map((call) => (
+          <CallEntry
+            key={call.id}
+            call={call}
+            onCallBack={() => void startCall(id, call.kind as "audio" | "video", title)}
+          />
+        ))}
         {messages.map((m, i) => {
           const own = m.sender_id === user?.id;
           const quoted = messages.find((x) => x.id === m.reply_to);
@@ -466,7 +590,7 @@ function Conversation() {
                   </span>
                 )}
                 <div
-                  className={`relative max-w-[85%] rounded-[20px] px-3.5 py-2 ${own ? "rounded-br-md bg-bubble-out text-bubble-out-foreground" : "rounded-bl-md bg-bubble-in text-bubble-in-foreground"}`}
+                  className={`relative max-w-[82%] rounded-[22px] px-3.5 py-2 shadow-[0_1px_1px_rgba(15,23,42,0.06)] ${own ? "rounded-br-[8px] bg-[#2a6df6] text-white" : "rounded-bl-[8px] bg-white text-slate-800"}`}
                   onDoubleClick={() => !m.deleted_at && setSelected(m.id)}
                   onContextMenu={(event) => {
                     event.preventDefault();
@@ -484,7 +608,7 @@ function Conversation() {
                     <>
                       {m.attachment_url && <Attachment message={m} />}
                       {m.body && (
-                        <p className="whitespace-pre-wrap break-words text-[17px] leading-snug [overflow-wrap:anywhere]">
+                        <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.45] [overflow-wrap:anywhere]">
                           {m.body}
                         </p>
                       )}
@@ -624,7 +748,7 @@ function Conversation() {
         )}
         <div ref={bottom} />
       </section>
-      <footer className="shrink-0 border-t border-border bg-background px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <footer className="shrink-0 border-t border-[#dfe9ff] bg-[#f6f9ff] px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-slate-800 dark:bg-[#0f172a]">
         {multiSelect.size > 0 && (
           <div className="mb-2 flex items-center justify-between rounded-lg bg-secondary px-3 py-2 text-sm">
             <span>{multiSelect.size} selected</span>
@@ -680,7 +804,7 @@ function Conversation() {
           </div>
         )}
         <form
-          className="flex items-end gap-2"
+          className="flex items-end gap-2 rounded-[24px] border border-[#dfe9ff] bg-white p-2 shadow-[0_8px_18px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-900"
           onSubmit={(e) => {
             e.preventDefault();
             void send();
@@ -704,8 +828,9 @@ function Conversation() {
             aria-label="Attach photo or file"
             disabled={busy || !!editing || !ready || !!error}
             onClick={() => input.current?.click()}
+            className="h-9 w-9 rounded-full text-slate-500 hover:bg-[#eef4ff] hover:text-[#2a6df6]"
           >
-            <Paperclip />
+            <Paperclip className="h-4 w-4" />
           </Button>
           <Button
             type="button"
@@ -713,8 +838,9 @@ function Conversation() {
             size="icon"
             aria-label="Open stickers"
             onClick={() => setStickersOpen((value) => !value)}
+            className="h-9 w-9 rounded-full text-slate-500 hover:bg-[#eef4ff] hover:text-[#2a6df6]"
           >
-            <Smile />
+            <Smile className="h-4 w-4" />
           </Button>
           <Button
             type="button"
@@ -724,8 +850,9 @@ function Conversation() {
             onPointerDown={() => void startRecording("voice")}
             onPointerUp={() => void stopRecording()}
             onPointerCancel={() => void stopRecording()}
+            className="h-9 w-9 rounded-full text-slate-500 hover:bg-[#eef4ff] hover:text-[#2a6df6]"
           >
-            <Mic />
+            <Mic className="h-4 w-4" />
           </Button>
           <Button
             type="button"
@@ -735,8 +862,9 @@ function Conversation() {
             onPointerDown={() => void startRecording("video-note")}
             onPointerUp={() => void stopRecording()}
             onPointerCancel={() => void stopRecording()}
+            className="h-9 w-9 rounded-full text-slate-500 hover:bg-[#eef4ff] hover:text-[#2a6df6]"
           >
-            <Camera />
+            <Camera className="h-4 w-4" />
           </Button>
           <textarea
             aria-label="Message"
@@ -744,7 +872,7 @@ function Conversation() {
             rows={1}
             value={body}
             disabled={busy || !!error}
-            className="max-h-32 min-h-10 min-w-0 flex-1 resize-y rounded-[20px] border border-input bg-background px-4 py-2 text-base outline-none focus:ring-1 focus:ring-ring"
+            className="max-h-32 min-h-10 min-w-0 flex-1 resize-none rounded-[18px] border border-transparent bg-[#f3f6fb] px-4 py-2 text-[15px] text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#cfe0ff] dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-400"
             onChange={(e) => {
               setBody(e.target.value);
               if (user && Date.now() - lastTyping.current > 1500) {
@@ -766,11 +894,11 @@ function Conversation() {
           <Button
             type="submit"
             size="icon"
-            className="mb-0.5 shrink-0 rounded-full"
+            className="mb-0.5 h-10 w-10 shrink-0 rounded-full bg-[#2a6df6] text-white shadow-[0_8px_20px_rgba(42,109,246,0.35)] hover:bg-[#245fe0] disabled:bg-slate-300"
             aria-label={editing ? "Save message" : "Send message"}
             disabled={busy || !ready || !!error || (!body.trim() && !file)}
           >
-            {busy ? <Loader2 className="animate-spin" /> : <ArrowUp />}
+            {busy ? <Loader2 className="animate-spin" /> : <ArrowUp className="h-4 w-4" />}
           </Button>
         </form>
       </footer>
