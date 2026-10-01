@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { ChatAvatar } from "@/components/RemoteImage";
 import { uploadFile } from "@/lib/storage";
+import { BottomNav } from "@/components/BottomNav";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
@@ -78,15 +80,15 @@ function ProfilePage() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col bg-background">
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-chrome px-2 pb-2 pt-[max(0.6rem,env(safe-area-inset-top))] backdrop-blur-xl">
+      <header className="liquid-panel sticky top-0 z-10 flex items-center justify-between px-2 pb-2 pt-[max(0.6rem,env(safe-area-inset-top))]">
         <Link to="/" className="flex items-center text-primary">
           <ChevronLeft className="h-6 w-6" />
           <span className="text-[17px]">Messages</span>
         </Link>
         <p className="text-[17px] font-semibold text-foreground">Profile</p>
-        <button onClick={save} disabled={saving} className="px-3 text-[17px] font-semibold text-primary">
+        <Button variant="ghost" onClick={save} disabled={saving} className="px-3 text-[17px] font-semibold text-primary">
           {saving ? "…" : "Save"}
-        </button>
+        </Button>
       </header>
 
       <div className="flex flex-col items-center px-6 py-8">
@@ -150,6 +152,7 @@ function ProfilePage() {
           Sign out
         </button>
       </div>
+      <BottomNav />
     </main>
   );
 }

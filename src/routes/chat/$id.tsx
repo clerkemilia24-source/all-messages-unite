@@ -30,6 +30,7 @@ import { uploadFile } from "@/lib/storage";
 import { ChatAvatar, useRemoteUrl } from "@/components/RemoteImage";
 import { Button } from "@/components/ui/button";
 import { useCalls, type CallRow } from "@/lib/calls";
+import { BottomNav } from "@/components/BottomNav";
 
 export const Route = createFileRoute("/chat/$id")({
   validateSearch: (search: Record<string, unknown>): { message?: string } =>
@@ -880,6 +881,7 @@ function Conversation() {
           </Button>
         </form>
       </footer>
+       <BottomNav />
     </main>
   );
 }
