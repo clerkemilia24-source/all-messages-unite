@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { getCallToken } from "@/lib/calls.functions";
+import { getCallToken, reportCallIceCandidate } from "@/lib/calls.functions";
 import { ChatAvatar } from "@/components/RemoteImage";
 
 export type CallKind = "audio" | "video";
@@ -46,6 +46,49 @@ const CallsContext = createContext<CallsValue>({ active: null, startCall: async 
 export const useCalls = () => useContext(CallsContext);
 
 const RING_TIMEOUT_MS = 45_000;
+type IceCandidateType = "host" | "srflx" | "relay" | "unknown";
+
+function getSelectedIceCandidateTypes(report: RTCStatsReport) {
+  const stats = Array.from(report.values()) as Array<Record<string, unknown>>;
+  const selectedPairId = stats.find(
+    (entry) =>
+      entry["type"] === "transport" && typeof entry["selectedCandidatePairId"] === "string",
+  )?.["selectedCandidatePairId"];
+  const selectedPair =
+    stats.find((entry) => entry["id"] === selectedPairId) ??
+    stats.find(
+      (entry) =>
+        entry["type"] === "candidate-pair" &&
+        (entry["selected"] === true ||
+          (entry["nominated"] === true && entry["state"] === "succeeded")),
+    );
+  if (!selectedPair) return undefined;
+
+  const getCandidateType = (candidateId: unknown): IceCandidateType => {
+    const candidate = stats.find((entry) => entry["id"] === candidateId);
+    const type = candidate?.["candidateType"];
+    return type === "host" || type === "srflx" || type === "relay" ? type : "unknown";
+  };
+
+  return {
+    localCandidateType: getCandidateType(selectedPair["localCandidateId"]),
+    remoteCandidateType: getCandidateType(selectedPair["remoteCandidateId"]),
+  };
+}
+
+async function reportSelectedIceCandidate(room: Room, callId: string) {
+  try {
+    for (const publication of room.localParticipant.trackPublications.values()) {
+      const report = await publication.track?.getRTCStatsReport();
+      const candidateTypes = report && getSelectedIceCandidateTypes(report);
+      if (!candidateTypes) continue;
+      await reportCallIceCandidate({ data: { callId, ...candidateTypes } });
+      return;
+    }
+  } catch (error) {
+    console.warn("[calls] Could not report selected ICE candidate pair", error);
+  }
+}
 
 class CallMediaError extends Error {
   readonly kind: CallKind;
@@ -218,6 +261,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
         const track = pub?.track as LocalTrack | undefined;
         if (track && localVideo.current) track.attach(localVideo.current);
       }
+      window.setTimeout(() => {
+        if (roomRef.current === room) void reportSelectedIceCandidate(room, call.id);
+      }, 1000);
       setActive((s) => (s && s.call.id === call.id ? { ...s, connected: true } : s));
     },
     [teardown],

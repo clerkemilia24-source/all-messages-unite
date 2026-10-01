@@ -93,3 +93,36 @@ export const getCallToken = createServerFn({ method: "POST" })
     });
     return { token: jwt, url: liveKitUrl.toString(), kind: call.kind, roomName: call.room_name };
   });
+
+const iceCandidateTypeSchema = z.enum(["host", "srflx", "relay", "unknown"]);
+
+export const reportCallIceCandidate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        callId: z.string().uuid(),
+        localCandidateType: iceCandidateTypeSchema,
+        remoteCandidateType: iceCandidateTypeSchema,
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: call, error } = await context.supabase
+      .from("call_sessions")
+      .select("id, room_name")
+      .eq("id", data.callId)
+      .maybeSingle();
+
+    if (error || !call) throw new Error("You cannot report diagnostics for this call.");
+
+    const usesTurn = data.localCandidateType === "relay" || data.remoteCandidateType === "relay";
+    console.info("[calls] Selected ICE candidate pair", {
+      userId: context.userId,
+      callId: call.id,
+      roomName: call.room_name,
+      localCandidateType: data.localCandidateType,
+      remoteCandidateType: data.remoteCandidateType,
+      route: usesTurn ? "relay" : "direct",
+    });
+  });
