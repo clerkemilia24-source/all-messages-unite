@@ -83,7 +83,7 @@ function Inbox() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b border-border bg-chrome px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-xl">
+      <header className="liquid-panel sticky top-0 z-10 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="flex items-end justify-between">
           <h1 className="text-[2rem] font-bold tracking-tight text-foreground">Messages</h1>
           <div className="flex items-center gap-2 pb-1.5">
@@ -107,7 +107,7 @@ function Inbox() {
             </Link>
           </div>
         </div>
-        <div className="mt-2 flex items-center gap-2 rounded-xl bg-secondary px-3 py-2">
+        <div className="liquid-panel mt-2 flex items-center gap-2 rounded-[24px] px-3 py-2">
           <Search className="h-4 w-4 text-muted-foreground" />
           <input
             value={q}
