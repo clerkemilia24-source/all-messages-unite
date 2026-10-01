@@ -319,18 +319,7 @@ function Conversation() {
           attachment_type: file?.type || null,
           reply_to: reply?.id ?? null,
         };
-        let result = file
-          ? await supabase.from("messages").insert({
-              ...baseMessage,
-              attachment_name: file.name,
-              attachment_size: file.size,
-              media_duration: null,
-              media_kind: null,
-            })
-          : await supabase.from("messages").insert(baseMessage);
-        if (result.error && file && isMissingMessageMetadataError(result.error)) {
-          result = await supabase.from("messages").insert(baseMessage);
-        }
+         const result = await supabase.from("messages").insert(baseMessage);
         const { error } = result;
         if (error) throw error;
       }
@@ -354,16 +343,6 @@ function Conversation() {
     } finally {
       setBusy(false);
     }
-  }
-
-  function isMissingMessageMetadataError(error: { message?: string | null }) {
-    const message = error.message?.toLowerCase() ?? "";
-    return (
-      message.includes("schema cache") ||
-      message.includes("column") ||
-      message.includes("attachment_name") ||
-      message.includes("media_kind")
-    );
   }
 
   async function startRecording(kind: "voice" | "video-note") {
@@ -407,29 +386,15 @@ function Conversation() {
     setRecording(null);
     try {
       const path = await uploadFile("attachments", user.id, file);
-      const richMessage = {
+       const recordedMessage = {
         conversation_id: id,
         sender_id: user.id,
         body: null,
         attachment_url: path,
         attachment_type: file.type,
-        attachment_name: file.name,
-        attachment_size: file.size,
-        media_duration: Math.max(1, Math.round((Date.now() - recordStarted.current) / 1000)),
-        media_kind: kind,
         reply_to: reply?.id ?? null,
       };
-      let result = await supabase.from("messages").insert(richMessage);
-      if (result.error && isMissingMessageMetadataError(result.error)) {
-        result = await supabase.from("messages").insert({
-          conversation_id: id,
-          sender_id: user.id,
-          body: null,
-          attachment_url: path,
-          attachment_type: file.type,
-          reply_to: reply?.id ?? null,
-        });
-      }
+       const result = await supabase.from("messages").insert(recordedMessage);
       if (result.error) throw result.error;
       setReply(null);
       await refresh();
