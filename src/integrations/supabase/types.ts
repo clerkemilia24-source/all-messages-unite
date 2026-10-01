@@ -58,6 +58,32 @@ export type Database = {
           },
         ]
       }
+      call_cohosts: {
+        Row: {
+          assigned_at: string
+          call_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          call_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          call_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_cohosts_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "call_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_members: {
         Row: {
           conversation_id: string
@@ -338,6 +364,10 @@ export type Database = {
       create_chat: {
         Args: { _is_group: boolean; _name: string; _other_ids: string[] }
         Returns: string
+      }
+      set_call_cohost: {
+        Args: { _call_id: string; _user_id: string; _is_cohost: boolean }
+        Returns: undefined
       }
       is_member: {
         Args: { _conversation_id: string; _user_id: string }

@@ -24,13 +24,26 @@ export const getCallToken = createServerFn({ method: "POST" })
     // RLS restricts this select to calls in conversations the user belongs to.
     const { data: call, error } = await context.supabase
       .from("call_sessions")
-      .select("id, room_name, status, kind, conversation_id")
+      .select("id, room_name, status, kind, conversation_id, initiator_id")
       .eq("id", data.callId)
       .maybeSingle();
 
     if (error || !call) throw new Error("You cannot join this call.");
     if (call.status === "ended" || call.status === "declined" || call.status === "missed") {
       throw new Error("This call has already ended.");
+    }
+
+    let role: "host" | "cohost" | "participant" =
+      call.initiator_id === context.userId ? "host" : "participant";
+    if (role !== "host") {
+      const { data: cohost, error: cohostError } = await context.supabase
+        .from("call_cohosts")
+        .select("user_id")
+        .eq("call_id", call.id)
+        .eq("user_id", context.userId)
+        .maybeSingle();
+      if (cohostError) throw new Error("Could not verify your call role.");
+      if (cohost) role = "cohost";
     }
 
     const apiKey = getRuntimeEnvironmentValue("LIVEKIT_API_KEY")?.trim();
@@ -91,7 +104,50 @@ export const getCallToken = createServerFn({ method: "POST" })
       expiresInSeconds: 120,
       websocketUrl: liveKitUrl.toString(),
     });
-    return { token: jwt, url: liveKitUrl.toString(), kind: call.kind, roomName: call.room_name };
+    return {
+      token: jwt,
+      url: liveKitUrl.toString(),
+      kind: call.kind,
+      roomName: call.room_name,
+      role,
+    };
+  });
+
+export const setCallCohost = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        callId: z.string().uuid(),
+        userId: z.string().uuid(),
+        isCohost: z.boolean(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: call, error } = await context.supabase
+      .from("call_sessions")
+      .select("id, conversation_id, initiator_id")
+      .eq("id", data.callId)
+      .maybeSingle();
+    if (error || !call || call.initiator_id !== context.userId) {
+      throw new Error("Only the call host can change co-host roles.");
+    }
+
+    const { data: member, error: memberError } = await context.supabase
+      .from("conversation_members")
+      .select("user_id")
+      .eq("conversation_id", call.conversation_id)
+      .eq("user_id", data.userId)
+      .maybeSingle();
+    if (memberError || !member) throw new Error("Co-host must be a member of this conversation.");
+
+    const { error: updateError } = await context.supabase.rpc("set_call_cohost", {
+      _call_id: data.callId,
+      _user_id: data.userId,
+      _is_cohost: data.isCohost,
+    });
+    if (updateError) throw new Error("Could not update the co-host role.");
   });
 
 const iceCandidateTypeSchema = z.enum(["host", "srflx", "relay", "unknown"]);
