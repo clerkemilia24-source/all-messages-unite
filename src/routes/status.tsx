@@ -9,8 +9,6 @@ import {
   Image as ImageIcon,
   Heart,
   Send,
-  Bookmark,
-  VolumeX,
   MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -80,7 +78,6 @@ function StatusPage() {
   const [myViews, setMyViews] = useState<Set<string>>(new Set());
   const [composing, setComposing] = useState<null | "text" | "media">(null);
   const [viewing, setViewing] = useState<{ authorId: string; index: number } | null>(null);
-  const [mutedAuthors, setMutedAuthors] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!loading && !user) void navigate({ to: "/auth" });
@@ -94,15 +91,7 @@ function StatusPage() {
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: true });
     const rows = (data ?? []) as StatusPost[];
-    const { data: muted } = await supabase
-      .from("status_mutes")
-      .select("muted_user_id")
-      .eq("user_id", user.id);
-    const mutedSet = new Set<string>(
-      (muted ?? []).map((row: { muted_user_id: string }) => row.muted_user_id),
-    );
-    setMutedAuthors(mutedSet);
-    setPosts(rows.filter((row) => !mutedSet.has(row.author_id)));
+    setPosts(rows);
 
     const authorIds = Array.from(new Set(rows.map((r) => r.author_id)));
     if (authorIds.length) {
@@ -143,7 +132,7 @@ function StatusPage() {
 
   const groups = useMemo(() => {
     const others = (posts ?? []).filter(
-      (p) => p.author_id !== user?.id && !mutedAuthors.has(p.author_id),
+      (p) => p.author_id !== user?.id,
     );
     const byAuthor = new Map<string, StatusPost[]>();
     others.forEach((p) => {
@@ -162,7 +151,7 @@ function StatusPage() {
         if (!!a.unviewed !== !!b.unviewed) return a.unviewed ? -1 : 1;
         return +new Date(b.latest.created_at) - +new Date(a.latest.created_at);
       });
-  }, [posts, user, myViews, mutedAuthors]);
+  }, [posts, user, myViews]);
 
   const viewerPosts = viewing
     ? viewing.authorId === user?.id
@@ -309,15 +298,6 @@ function StatusPage() {
           isMine={viewing.authorId === user.id}
           viewerId={user.id}
           onViewed={(id) => setMyViews((s) => new Set(s).add(id))}
-          onMuted={async () => {
-            if (!user || viewing.authorId === user.id) return;
-            await supabase
-              .from("status_mutes")
-              .insert({ user_id: user.id, muted_user_id: viewing.authorId });
-            setMutedAuthors((current) => new Set(current).add(viewing.authorId));
-            setViewing(null);
-            await refresh();
-          }}
           onClose={() => {
             setViewing(null);
             void refresh();
@@ -344,7 +324,6 @@ function Composer({
   const [text, setText] = useState("");
   const [background, setBackground] = useState(BACKGROUNDS[0]!);
   const [gradient, setGradient] = useState<string | null>(null);
-  const [audienceMode, setAudienceMode] = useState<"contacts" | "except" | "only">("contacts");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -363,7 +342,6 @@ function Composer({
           kind: "text",
           body: text.trim(),
           background: gradient ?? background,
-          audience_mode: audienceMode,
         });
         if (error) throw error;
       } else {
@@ -445,19 +423,6 @@ function Composer({
         </div>
       )}
 
-      <label className="mb-3 flex items-center justify-between gap-3 text-sm">
-        <span>Who can see this status?</span>
-        <select
-          value={audienceMode}
-          onChange={(event) => setAudienceMode(event.target.value as typeof audienceMode)}
-          className="rounded-lg bg-background/15 px-2 py-1 text-sm text-background"
-          aria-label="Status audience"
-        >
-          <option value="contacts">My Contacts</option>
-          <option value="except">My Contacts Except…</option>
-          <option value="only">Only Share With…</option>
-        </select>
-      </label>
 
       <input
         ref={fileInput}
@@ -484,7 +449,6 @@ function StatusViewer({
   isMine,
   viewerId,
   onViewed,
-  onMuted,
   onClose,
 }: {
   posts: StatusPost[];
@@ -493,7 +457,6 @@ function StatusViewer({
   isMine: boolean;
   viewerId: string;
   onViewed: (id: string) => void;
-  onMuted: () => Promise<void>;
   onClose: () => void;
 }) {
   const [index, setIndex] = useState(startIndex);
@@ -502,40 +465,10 @@ function StatusViewer({
   const [viewers, setViewers] = useState<Viewer[] | null>(null);
   const [showViewers, setShowViewers] = useState(false);
   const [viewerProfiles, setViewerProfiles] = useState<Map<string, ProfileLite>>(new Map());
-  const [reaction, setReaction] = useState<string | null>(null);
-  const [reply, setReply] = useState("");
-  const [showReply, setShowReply] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const post = posts[Math.min(index, posts.length - 1)]!;
   const mediaUrl = useRemoteUrl("status", post.kind === "text" ? null : post.media_url);
   const nextMediaUrl = useRemoteUrl("status", posts[index + 1]?.media_url ?? null);
-
-  async function reactToStatus(emoji: string) {
-    setReaction(emoji);
-    await supabase
-      .from("status_reactions")
-      .upsert(
-        { status_id: post.id, user_id: viewerId, emoji },
-        { onConflict: "status_id,user_id" },
-      );
-  }
-
-  async function sendReply() {
-    if (!reply.trim()) return;
-    await supabase.from("status_replies").insert({
-      status_id: post.id,
-      sender_id: viewerId,
-      body: reply.trim(),
-    });
-    setReply("");
-    setShowReply(false);
-    toast.success("Private reply sent");
-  }
-
-  async function saveHighlight() {
-    await supabase.from("status_highlights").upsert({ user_id: viewerId, status_id: post.id });
-    toast.success("Saved to highlights");
-  }
 
   // Record the view (own statuses are never recorded as views).
   useEffect(() => {
@@ -674,55 +607,6 @@ function StatusViewer({
         {nextMediaUrl && <img src={nextMediaUrl} alt="" aria-hidden className="hidden" />}
       </div>
 
-      {!isMine && (
-        <div className="space-y-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex gap-1">
-              {["❤️", "👍", "😂", "😮", "😢"].map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => void reactToStatus(emoji)}
-                  aria-label={`React ${emoji}`}
-                  className={`rounded-full px-2 py-1 text-lg ${reaction === emoji ? "bg-white/25" : ""}`}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => setShowReply((value) => !value)} aria-label="Reply privately">
-                <Send className="h-5 w-5" />
-              </button>
-              <button onClick={() => void saveHighlight()} aria-label="Save status to highlights">
-                <Bookmark className="h-5 w-5" />
-              </button>
-              <button onClick={() => void onMuted()} aria-label="Mute this person's status">
-                <VolumeX className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-          {showReply && (
-            <form
-              className="flex gap-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void sendReply();
-              }}
-            >
-              <input
-                value={reply}
-                onChange={(event) => setReply(event.target.value)}
-                placeholder="Private reply"
-                aria-label="Private reply"
-                className="min-w-0 flex-1 rounded-full bg-white/15 px-4 py-2 text-sm outline-none placeholder:text-white/60"
-              />
-              <button type="submit" aria-label="Send private reply">
-                <Send className="h-5 w-5" />
-              </button>
-            </form>
-          )}
-        </div>
-      )}
 
       {isMine && (
         <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
