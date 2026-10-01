@@ -24,3 +24,7 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Feed Moderation
+
+Public feed posts and comments are published only after the server-side moderation service approves them. Configure `CONTENT_MODERATION_URL` and `CONTENT_MODERATION_API_KEY` in the server runtime. The endpoint receives a JSON `POST` with `body`, `mediaType`, and `mediaUrl`; the media URL is a short-lived signed URL for private review storage. It must inspect text and any supplied photo or video, and return `{"approved": true}` only when the content passes policy. Missing configuration, service errors, invalid responses, and rejected content all fail closed. The API key is sent as a Bearer token and must never be exposed to browser code.

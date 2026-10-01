@@ -64,6 +64,13 @@
       "when": 1790813343012,
       "tag": "0008_call_cohosts",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790815639572,
+      "tag": "0009_social_feed",
+      "breakpoints": true
     }
   ]
 }
