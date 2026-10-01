@@ -13,9 +13,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CallsRouteImport } from './routes/calls'
 import { Route as ContactsRouteImport } from './routes/contacts'
+import { Route as FeedRouteImport } from './routes/feed'
 import { Route as NewRouteImport } from './routes/new'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ShopRouteImport } from './routes/shop'
 import { Route as StatusRouteImport } from './routes/status'
 import { Route as ChatIdRouteImport } from './routes/chat/$id'
 import { Route as ApiPublicCronStatusCleanupRouteImport } from './routes/api/public/cron/status-cleanup'
@@ -40,6 +42,11 @@ const ContactsRoute = ContactsRouteImport.update({
   path: '/contacts',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FeedRoute = FeedRouteImport.update({
+  id: '/feed',
+  path: '/feed',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NewRoute = NewRouteImport.update({
   id: '/new',
   path: '/new',
@@ -53,6 +60,11 @@ const ProfileRoute = ProfileRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShopRoute = ShopRouteImport.update({
+  id: '/shop',
+  path: '/shop',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StatusRoute = StatusRouteImport.update({
@@ -77,9 +89,11 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/calls': typeof CallsRoute
   '/contacts': typeof ContactsRoute
+  '/feed': typeof FeedRoute
   '/new': typeof NewRoute
   '/profile': typeof ProfileRoute
   '/settings': typeof SettingsRoute
+  '/shop': typeof ShopRoute
   '/status': typeof StatusRoute
   '/chat/$id': typeof ChatIdRoute
   '/api/public/cron/status-cleanup': typeof ApiPublicCronStatusCleanupRoute
@@ -89,9 +103,11 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/calls': typeof CallsRoute
   '/contacts': typeof ContactsRoute
+  '/feed': typeof FeedRoute
   '/new': typeof NewRoute
   '/profile': typeof ProfileRoute
   '/settings': typeof SettingsRoute
+  '/shop': typeof ShopRoute
   '/status': typeof StatusRoute
   '/chat/$id': typeof ChatIdRoute
   '/api/public/cron/status-cleanup': typeof ApiPublicCronStatusCleanupRoute
@@ -102,9 +118,11 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/calls': typeof CallsRoute
   '/contacts': typeof ContactsRoute
+  '/feed': typeof FeedRoute
   '/new': typeof NewRoute
   '/profile': typeof ProfileRoute
   '/settings': typeof SettingsRoute
+  '/shop': typeof ShopRoute
   '/status': typeof StatusRoute
   '/chat/$id': typeof ChatIdRoute
   '/api/public/cron/status-cleanup': typeof ApiPublicCronStatusCleanupRoute
@@ -116,9 +134,11 @@ export interface FileRouteTypes {
     | '/auth'
     | '/calls'
     | '/contacts'
+    | '/feed'
     | '/new'
     | '/profile'
     | '/settings'
+    | '/shop'
     | '/status'
     | '/chat/$id'
     | '/api/public/cron/status-cleanup'
@@ -128,9 +148,11 @@ export interface FileRouteTypes {
     | '/auth'
     | '/calls'
     | '/contacts'
+    | '/feed'
     | '/new'
     | '/profile'
     | '/settings'
+    | '/shop'
     | '/status'
     | '/chat/$id'
     | '/api/public/cron/status-cleanup'
@@ -140,9 +162,11 @@ export interface FileRouteTypes {
     | '/auth'
     | '/calls'
     | '/contacts'
+    | '/feed'
     | '/new'
     | '/profile'
     | '/settings'
+    | '/shop'
     | '/status'
     | '/chat/$id'
     | '/api/public/cron/status-cleanup'
@@ -153,9 +177,11 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   CallsRoute: typeof CallsRoute
   ContactsRoute: typeof ContactsRoute
+  FeedRoute: typeof FeedRoute
   NewRoute: typeof NewRoute
   ProfileRoute: typeof ProfileRoute
   SettingsRoute: typeof SettingsRoute
+  ShopRoute: typeof ShopRoute
   StatusRoute: typeof StatusRoute
   ChatIdRoute: typeof ChatIdRoute
   ApiPublicCronStatusCleanupRoute: typeof ApiPublicCronStatusCleanupRoute
@@ -191,6 +217,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/feed': {
+      id: '/feed'
+      path: '/feed'
+      fullPath: '/feed'
+      preLoaderRoute: typeof FeedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/new': {
       id: '/new'
       path: '/new'
@@ -210,6 +243,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shop': {
+      id: '/shop'
+      path: '/shop'
+      fullPath: '/shop'
+      preLoaderRoute: typeof ShopRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/status': {
@@ -241,9 +281,11 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   CallsRoute: CallsRoute,
   ContactsRoute: ContactsRoute,
+  FeedRoute: FeedRoute,
   NewRoute: NewRoute,
   ProfileRoute: ProfileRoute,
   SettingsRoute: SettingsRoute,
+  ShopRoute: ShopRoute,
   StatusRoute: StatusRoute,
   ChatIdRoute: ChatIdRoute,
   ApiPublicCronStatusCleanupRoute: ApiPublicCronStatusCleanupRoute,

@@ -11,6 +11,7 @@ import {
   Send,
   Bookmark,
   VolumeX,
+  MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +21,7 @@ import { ChatAvatar, useRemoteUrl } from "@/components/RemoteImage";
 import { uploadFile } from "@/lib/storage";
 import { formatListTime, type ProfileLite } from "@/lib/chat";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/status")({
   head: () => ({
@@ -61,6 +63,14 @@ const GRADIENTS = [
   "linear-gradient(135deg, #34c759, #0b84ff)",
   "linear-gradient(135deg, #ff375f, #ff9500)",
 ];
+
+function relativeTime(value: string) {
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+}
 
 function StatusPage() {
   const { user, profile, loading } = useAuth();
@@ -162,31 +172,39 @@ function StatusPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b border-border bg-chrome px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-xl">
-        <h1 className="text-[2rem] font-bold tracking-tight text-foreground">Status</h1>
+      <header className="liquid-panel sticky top-0 z-10 flex items-center justify-between px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <h1 className="text-[2rem] font-bold text-foreground">Status</h1>
+        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label="Status options"><MoreHorizontal /></Button></DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem disabled>Create Channel</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void navigate({ to: "/settings" })}>Status Privacy</DropdownMenuItem>
+            <DropdownMenuItem disabled>Starred</DropdownMenuItem>
+            <DropdownMenuItem disabled>Ad Preferences</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void navigate({ to: "/settings" })}>Settings</DropdownMenuItem>
+          </DropdownMenuContent></DropdownMenu>
       </header>
 
       <section className="border-b border-border px-4 py-3">
-        <div className="flex items-center gap-3">
-          <button
+          <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon"
             onClick={() =>
               mine.length ? setViewing({ authorId: user!.id, index: 0 }) : setComposing("text")
             }
-            className="relative"
+            className="relative h-14 w-14 rounded-full p-0"
             aria-label={mine.length ? "View my status" : "Add status"}
           >
-            <ChatAvatar name={profile?.display_name ?? "Me"} path={profile?.avatar_url} size={52} />
+            <span className={mine.length ? "rounded-full p-0.5 ring-2 ring-primary" : ""}><ChatAvatar name={profile?.display_name ?? "Me"} path={profile?.avatar_url} size={52} /></span>
             {mine.length === 0 && (
               <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
                 <Plus className="h-3.5 w-3.5" />
               </span>
             )}
-          </button>
+          </Button>
           <div className="min-w-0 flex-1">
             <p className="text-[17px] font-semibold text-foreground">My status</p>
             <p className="text-[15px] text-muted-foreground">
               {mine.length
-                ? `${mine.length} update${mine.length > 1 ? "s" : ""} · ${formatListTime(mine[mine.length - 1]!.created_at)}`
+                 ? `${mine.length} update${mine.length > 1 ? "s" : ""} · ${relativeTime(mine[mine.length - 1]!.created_at)}`
                 : "Tap to add an update"}
             </p>
           </div>
@@ -228,9 +246,9 @@ function StatusPage() {
             const p = profiles.get(g.authorId);
             return (
               <li key={g.authorId}>
-                <button
+                  <Button variant="ghost"
                   onClick={() => setViewing({ authorId: g.authorId, index: 0 })}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition active:bg-secondary"
+                  className="h-auto w-full justify-start gap-3 rounded-[24px] px-4 py-3 text-left transition active:bg-secondary"
                 >
                   <span
                     className={
@@ -250,11 +268,11 @@ function StatusPage() {
                       {p?.display_name ?? "Someone"}
                     </p>
                     <p className="text-[15px] text-muted-foreground">
-                      {formatListTime(g.latest.created_at)}
+                       {relativeTime(g.latest.created_at)}
                       {g.unviewed ? ` · ${g.unviewed} new` : ""}
                     </p>
                   </div>
-                </button>
+                  </Button>
               </li>
             );
           })}
