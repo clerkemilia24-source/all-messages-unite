@@ -1,12 +1,14 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { ChevronRight, LogOut, Loader2 } from "lucide-react";
+import { ChevronRight, LogOut, Loader2, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { ChatAvatar } from "@/components/RemoteImage";
 import { BottomNav } from "@/components/BottomNav";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -67,7 +69,7 @@ function SettingsSection({
         </p>
         <p className="mt-0.5 text-[13px] text-muted-foreground">{description}</p>
       </div>
-      <div className="overflow-hidden rounded-xl bg-card">{children}</div>
+      <div className="liquid-panel overflow-hidden rounded-[24px]">{children}</div>
     </section>
   );
 }
@@ -144,14 +146,23 @@ function SettingsPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b border-border bg-chrome px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-xl">
-        <h1 className="text-[2rem] font-bold tracking-tight text-foreground">Settings</h1>
+      <header className="liquid-panel sticky top-0 z-10 flex items-center justify-between px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <h1 className="text-[2rem] font-bold text-foreground">Settings</h1>
+        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label="Settings options"><MoreHorizontal /></Button></DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => void navigate({ to: "/new" })}>New Group</DropdownMenuItem>
+            <DropdownMenuItem disabled>New Broadcast</DropdownMenuItem>
+            <DropdownMenuItem disabled>Linked Devices</DropdownMenuItem>
+            <DropdownMenuItem disabled>Starred</DropdownMenuItem>
+            <DropdownMenuItem disabled>Read All</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => document.getElementById("settings-sections")?.scrollIntoView({ behavior: "smooth" })}>Settings</DropdownMenuItem>
+          </DropdownMenuContent></DropdownMenu>
       </header>
 
-      <div className="flex-1 space-y-6 px-4 py-4">
+      <div id="settings-sections" className="flex-1 space-y-6 px-4 py-4">
         <Link
           to="/profile"
-          className="flex items-center gap-3 rounded-xl bg-card px-4 py-3 transition active:scale-[0.99]"
+          className="liquid-panel flex items-center gap-3 rounded-[24px] px-4 py-3 transition active:scale-[0.99]"
         >
           <ChatAvatar name={profile?.display_name ?? "Me"} path={profile?.avatar_url} size={56} />
           <div className="min-w-0 flex-1">
@@ -179,7 +190,7 @@ function SettingsPage() {
         </SettingsSection>
 
         <SettingsSection title="Privacy" description="Choose what other people can see about you.">
-          <div className="overflow-hidden rounded-xl bg-card">
+          <div className="overflow-hidden rounded-[24px]">
             {values === null ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />

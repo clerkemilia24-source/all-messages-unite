@@ -56,6 +56,9 @@
   --color-presence: var(--presence);
   --color-chrome: var(--chrome);
   --color-chrome-foreground: var(--chrome-foreground);
+  --color-glass: var(--glass);
+  --color-glass-border: var(--glass-border);
+  --color-glass-highlight: var(--glass-highlight);
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -67,7 +70,7 @@
   --card-foreground: oklch(0.17 0.02 240);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.17 0.02 240);
-  --primary: oklch(0.63 0.18 253);
+  --primary: oklch(0.77 0.12 226);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.965 0.006 240);
   --secondary-foreground: oklch(0.17 0.02 240);
@@ -81,7 +84,7 @@
   --input: oklch(0.96 0.006 240);
   --ring: oklch(0.63 0.18 253);
 
-  --bubble-out: oklch(0.63 0.18 253);
+  --bubble-out: oklch(0.77 0.12 226);
   --bubble-out-foreground: oklch(1 0 0);
   --bubble-in: oklch(1 0 0);
   --bubble-in-foreground: oklch(0.17 0.02 240);
@@ -91,6 +94,9 @@
   --presence: oklch(0.75 0.18 146);
   --chrome: oklch(0.96 0.008 245 / 0.9);
   --chrome-foreground: oklch(0.17 0.02 240);
+  --glass: oklch(1 0 0 / 12%);
+  --glass-border: oklch(1 0 0 / 25%);
+  --glass-highlight: oklch(1 0 0 / 36%);
 }
 
 .dark {
@@ -100,7 +106,7 @@
   --card-foreground: oklch(0.98 0 0);
   --popover: oklch(0.18 0 0);
   --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.62 0.21 259.6);
+  --primary: oklch(0.77 0.12 226);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.23 0 0);
   --secondary-foreground: oklch(0.98 0 0);
@@ -114,7 +120,7 @@
   --input: oklch(1 0 0 / 16%);
   --ring: oklch(0.62 0.21 259.6);
 
-  --bubble-out: oklch(0.62 0.21 259.6);
+  --bubble-out: oklch(0.77 0.12 226);
   --bubble-out-foreground: oklch(1 0 0);
   --bubble-in: oklch(0.28 0.002 258);
   --bubble-in-foreground: oklch(0.98 0 0);
@@ -124,6 +130,17 @@
   --presence: oklch(0.75 0.18 145);
   --chrome: oklch(0.16 0 0 / 0.82);
   --chrome-foreground: oklch(0.98 0 0);
+  --glass: oklch(1 0 0 / 10%);
+  --glass-border: oklch(1 0 0 / 18%);
+  --glass-highlight: oklch(1 0 0 / 28%);
+}
+
+@utility liquid-panel {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-top-color: var(--glass-highlight);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
 

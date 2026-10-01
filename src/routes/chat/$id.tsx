@@ -30,6 +30,7 @@ import { uploadFile } from "@/lib/storage";
 import { ChatAvatar, useRemoteUrl } from "@/components/RemoteImage";
 import { Button } from "@/components/ui/button";
 import { useCalls, type CallRow } from "@/lib/calls";
+import { BottomNav } from "@/components/BottomNav";
 
 export const Route = createFileRoute("/chat/$id")({
   validateSearch: (search: Record<string, unknown>): { message?: string } =>
@@ -63,25 +64,25 @@ function CallEntry({ call, onCallBack }: { call: CallRow; onCallBack: () => void
           : "Call";
   return (
     <div className="my-3 flex justify-center">
-      <div className="flex items-center gap-3 rounded-2xl bg-white/80 px-4 py-2.5 text-sm text-slate-600 shadow-sm dark:bg-slate-900/80 dark:text-slate-300">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#e8f0ff] text-[#2a6df6] dark:bg-blue-950">
+      <div className="liquid-panel flex items-center gap-3 rounded-[24px] px-4 py-2.5 text-sm text-foreground shadow-sm">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-primary">
           <Icon className="h-4 w-4" />
         </span>
         <span>
           <span className="block font-medium">{label}</span>
-          <span className="flex items-center gap-1 text-xs text-slate-400">
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
             {outgoing ? <PhoneCall className="h-3 w-3" /> : <Phone className="h-3 w-3" />}
             {call.kind === "video" ? "Video" : "Voice"} · {formatDivider(call.created_at)}
           </span>
         </span>
-        <button
+        <Button variant="ghost" size="icon"
           type="button"
           onClick={onCallBack}
           aria-label="Call back"
-          className="rounded-full p-2 text-[#2a6df6] hover:bg-[#e8f0ff]"
+          className="rounded-full text-primary hover:bg-primary/10"
         >
           <PhoneCall className="h-4 w-4" />
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -319,18 +320,7 @@ function Conversation() {
           attachment_type: file?.type || null,
           reply_to: reply?.id ?? null,
         };
-        let result = file
-          ? await supabase.from("messages").insert({
-              ...baseMessage,
-              attachment_name: file.name,
-              attachment_size: file.size,
-              media_duration: null,
-              media_kind: null,
-            })
-          : await supabase.from("messages").insert(baseMessage);
-        if (result.error && file && isMissingMessageMetadataError(result.error)) {
-          result = await supabase.from("messages").insert(baseMessage);
-        }
+         const result = await supabase.from("messages").insert(baseMessage);
         const { error } = result;
         if (error) throw error;
       }
@@ -354,16 +344,6 @@ function Conversation() {
     } finally {
       setBusy(false);
     }
-  }
-
-  function isMissingMessageMetadataError(error: { message?: string | null }) {
-    const message = error.message?.toLowerCase() ?? "";
-    return (
-      message.includes("schema cache") ||
-      message.includes("column") ||
-      message.includes("attachment_name") ||
-      message.includes("media_kind")
-    );
   }
 
   async function startRecording(kind: "voice" | "video-note") {
@@ -407,29 +387,15 @@ function Conversation() {
     setRecording(null);
     try {
       const path = await uploadFile("attachments", user.id, file);
-      const richMessage = {
+       const recordedMessage = {
         conversation_id: id,
         sender_id: user.id,
         body: null,
         attachment_url: path,
         attachment_type: file.type,
-        attachment_name: file.name,
-        attachment_size: file.size,
-        media_duration: Math.max(1, Math.round((Date.now() - recordStarted.current) / 1000)),
-        media_kind: kind,
         reply_to: reply?.id ?? null,
       };
-      let result = await supabase.from("messages").insert(richMessage);
-      if (result.error && isMissingMessageMetadataError(result.error)) {
-        result = await supabase.from("messages").insert({
-          conversation_id: id,
-          sender_id: user.id,
-          body: null,
-          attachment_url: path,
-          attachment_type: file.type,
-          reply_to: reply?.id ?? null,
-        });
-      }
+       const result = await supabase.from("messages").insert(recordedMessage);
       if (result.error) throw result.error;
       setReply(null);
       await refresh();
@@ -504,13 +470,13 @@ function Conversation() {
   const other = profiles.find((p) => p.id !== user?.id);
   const lastOutgoing = messages.filter((m) => m.sender_id === user?.id).at(-1)?.id;
   return (
-    <main className="mx-auto flex h-dvh w-full max-w-2xl flex-col bg-[#edf3fb] text-slate-900 dark:bg-[#0c1220] dark:text-slate-100">
-      <header className="relative flex shrink-0 items-center justify-between border-b border-[#dfe9ff] bg-[#2a6df6] px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white shadow-[0_10px_25px_rgba(42,109,246,0.22)]">
+    <main className="mx-auto flex h-dvh w-full max-w-2xl flex-col bg-background text-foreground">
+      <header className="liquid-panel relative flex shrink-0 items-center justify-between px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <Button
           asChild
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-full bg-white/10 text-white hover:bg-white/15"
+          className="h-9 w-9 rounded-full text-foreground hover:bg-primary/10"
         >
           <Link to="/" aria-label="Back to messages">
             <ChevronLeft className="h-5 w-5" />
@@ -520,15 +486,14 @@ function Conversation() {
           <div className="relative shrink-0">
             <ChatAvatar name={title} path={group ? null : other?.avatar_url} size={40} />
             {!group && (
-              <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
+              <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-presence" />
             )}
           </div>
           <div className="min-w-0 flex-1 text-left">
             <h1 className="truncate text-[15px] font-semibold tracking-[0.01em]">
               {title}
-              {!group && <span className="ml-1 text-[11px] text-white/80">★</span>}
             </h1>
-            <p className="truncate text-[11px] text-white/75">
+            <p className="truncate text-[11px] text-muted-foreground">
               {typing.length > 0 ? "typing…" : "online"}
             </p>
           </div>
@@ -536,7 +501,7 @@ function Conversation() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-full bg-white/10 text-white hover:bg-white/15"
+          className="h-9 w-9 rounded-full text-foreground hover:bg-primary/10"
           aria-label="Conversation options"
         >
           <MoreHorizontal className="h-5 w-5" />
@@ -544,7 +509,7 @@ function Conversation() {
       </header>
       <section
         aria-label="Messages"
-        className="flex-1 overflow-y-auto bg-[#edf3fb] px-4 py-5 dark:bg-[#0c1220]"
+        className="flex-1 overflow-y-auto bg-background px-4 py-5"
       >
         {!ready ? (
           <Loader2 className="mx-auto animate-spin text-muted-foreground" />
@@ -604,7 +569,7 @@ function Conversation() {
                   </span>
                 )}
                 <div
-                  className={`relative max-w-[82%] rounded-[22px] px-3.5 py-2 shadow-[0_1px_1px_rgba(15,23,42,0.06)] ${own ? "rounded-br-[8px] bg-[#2a6df6] text-white" : "rounded-bl-[8px] bg-white text-slate-800"}`}
+                   className={`relative max-w-[82%] rounded-[26px] px-3.5 py-2 shadow-sm ${own ? "rounded-br-[10px] bg-bubble-out text-bubble-out-foreground" : "liquid-panel rounded-bl-[10px] text-foreground"}`}
                   onDoubleClick={() => !m.deleted_at && setSelected(m.id)}
                   onContextMenu={(event) => {
                     event.preventDefault();
@@ -633,7 +598,7 @@ function Conversation() {
                   <div className="flex items-center gap-1">
                     {rs.length > 0 && (
                       <span
-                        className="rounded-full bg-secondary px-2 text-sm"
+                         className="liquid-panel rounded-full px-2 text-sm"
                         aria-label="Tapbacks"
                       >
                         {Array.from(new Set(rs.map((r) => r.emoji))).join(" ")}{" "}
@@ -762,7 +727,7 @@ function Conversation() {
         )}
         <div ref={bottom} />
       </section>
-      <footer className="shrink-0 border-t border-[#dfe9ff] bg-[#f6f9ff] px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-slate-800 dark:bg-[#0f172a]">
+       <footer className="liquid-panel shrink-0 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         {multiSelect.size > 0 && (
           <div className="mb-2 flex items-center justify-between rounded-lg bg-secondary px-3 py-2 text-sm">
             <span>{multiSelect.size} selected</span>
@@ -818,7 +783,7 @@ function Conversation() {
           </div>
         )}
         <form
-          className="flex items-end gap-2 rounded-[24px] border border-[#dfe9ff] bg-white p-2 shadow-[0_8px_18px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-900"
+           className="liquid-panel flex items-end gap-2 rounded-[28px] p-2 shadow-sm"
           onSubmit={(e) => {
             e.preventDefault();
             void send();
@@ -842,7 +807,7 @@ function Conversation() {
             aria-label="Attach photo or file"
             disabled={busy || !!editing || !ready || !!error}
             onClick={() => input.current?.click()}
-            className="h-9 w-9 rounded-full text-slate-500 hover:bg-[#eef4ff] hover:text-[#2a6df6]"
+             className="h-9 w-9 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
           >
             <Paperclip className="h-4 w-4" />
           </Button>
@@ -852,7 +817,7 @@ function Conversation() {
             size="icon"
             aria-label="Open stickers"
             onClick={() => setStickersOpen((value) => !value)}
-            className="h-9 w-9 rounded-full text-slate-500 hover:bg-[#eef4ff] hover:text-[#2a6df6]"
+             className="h-9 w-9 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
           >
             <Smile className="h-4 w-4" />
           </Button>
@@ -864,7 +829,7 @@ function Conversation() {
             onPointerDown={() => void startRecording("voice")}
             onPointerUp={() => void stopRecording()}
             onPointerCancel={() => void stopRecording()}
-            className="h-9 w-9 rounded-full text-slate-500 hover:bg-[#eef4ff] hover:text-[#2a6df6]"
+             className="h-9 w-9 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
           >
             <Mic className="h-4 w-4" />
           </Button>
@@ -876,7 +841,7 @@ function Conversation() {
             onPointerDown={() => void startRecording("video-note")}
             onPointerUp={() => void stopRecording()}
             onPointerCancel={() => void stopRecording()}
-            className="h-9 w-9 rounded-full text-slate-500 hover:bg-[#eef4ff] hover:text-[#2a6df6]"
+             className="h-9 w-9 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
           >
             <Camera className="h-4 w-4" />
           </Button>
@@ -886,7 +851,7 @@ function Conversation() {
             rows={1}
             value={body}
             disabled={busy || !!error}
-            className="max-h-32 min-h-10 min-w-0 flex-1 resize-none rounded-[18px] border border-transparent bg-[#f3f6fb] px-4 py-2 text-[15px] text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#cfe0ff] dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-400"
+             className="max-h-32 min-h-10 min-w-0 flex-1 resize-none rounded-[24px] border border-glass-border bg-glass px-4 py-2 text-[15px] text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
             onChange={(e) => {
               setBody(e.target.value);
               if (user && Date.now() - lastTyping.current > 1500) {
@@ -908,7 +873,7 @@ function Conversation() {
           <Button
             type="submit"
             size="icon"
-            className="mb-0.5 h-10 w-10 shrink-0 rounded-full bg-[#2a6df6] text-white shadow-[0_8px_20px_rgba(42,109,246,0.35)] hover:bg-[#245fe0] disabled:bg-slate-300"
+             className="mb-0.5 h-10 w-10 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
             aria-label={editing ? "Save message" : "Send message"}
             disabled={busy || !ready || !!error || (!body.trim() && !file)}
           >
@@ -916,6 +881,7 @@ function Conversation() {
           </Button>
         </form>
       </footer>
+       <BottomNav />
     </main>
   );
 }
