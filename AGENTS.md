@@ -11,3 +11,4 @@
 
 - Keep the six-tab navigation as a shared BottomNav component on authenticated screens; this maintains consistent active states and safe-area spacing.
 - Keep Liquid Glass colors and surface effects in global semantic CSS tokens/utilities; this lets chat and navigation share one theme.
+- Keep message and call content on solid surfaces while limiting translucent glass to interface chrome; this preserves contrast over chat content.

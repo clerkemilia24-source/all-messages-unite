@@ -1,4 +1,8 @@
 # Messaging completion
+- [x] Put chat text on solid bubbles and keep Liquid Glass on the header, composer and tab chrome; support reduced transparency.
+- [x] Wire attachment choices, emoji insertion, voice recording/playback and camera capture in chat.
+- [ ] Verify chat screenshots, composer interactions, two-account online/offline transition, and voice-note roundtrip. Blocked: no authenticated account for requesting user in preview.
+- [ ] Return to calling permission and connected-audio fixes in the next prompt, as requested.
 - [ ] Build six-tab Liquid Glass navigation and redesign chat, status, and settings without breaking existing flows.
 - [ ] Verify navigation, status publishing, and chat/calling where account access permits; publish before live testing.
 - [ ] Implement the approved additive feature extension: navigation/search, messaging tools, calls, status, privacy, contacts/settings, and reliability verification.

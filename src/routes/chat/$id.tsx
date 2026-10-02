@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
+import { useAuth, isOnline } from "@/lib/auth";
 import { type MessageRow, type ProfileLite, formatDivider } from "@/lib/chat";
 import { uploadFile } from "@/lib/storage";
 import { ChatAvatar, useRemoteUrl } from "@/components/RemoteImage";
@@ -51,8 +51,8 @@ export const Route = createFileRoute("/chat/$id")({
 type Reaction = { message_id: string; user_id: string; emoji: string };
 type Member = { user_id: string; last_read_at: string };
 
-function CallEntry({ call, onCallBack }: { call: CallRow; onCallBack: () => void }) {
-  const outgoing = call.status === "ended" || call.status === "missed";
+function CallEntry({ call, userId, onCallBack }: { call: CallRow; userId?: string; onCallBack: () => void }) {
+  const outgoing = call.initiator_id === userId;
   const Icon = call.kind === "video" ? Video : Phone;
   const label =
     call.status === "declined"
@@ -64,7 +64,7 @@ function CallEntry({ call, onCallBack }: { call: CallRow; onCallBack: () => void
           : "Call";
   return (
     <div className="my-3 flex justify-center">
-      <div className="liquid-panel flex items-center gap-3 rounded-[24px] px-4 py-2.5 text-sm text-foreground shadow-sm">
+      <div className="flex items-center gap-3 rounded-[24px] border border-border bg-card px-4 py-2.5 text-sm text-foreground shadow-sm">
         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-primary">
           <Icon className="h-4 w-4" />
         </span>
@@ -87,9 +87,33 @@ function CallEntry({ call, onCallBack }: { call: CallRow; onCallBack: () => void
     </div>
   );
 }
+function VoiceAttachment({ url }: { url: string }) {
+  const audio = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const bars = ["h-3", "h-5", "h-3", "h-6", "h-4", "h-7", "h-3", "h-5", "h-7", "h-4", "h-6", "h-3", "h-5", "h-7", "h-3", "h-5", "h-3", "h-6", "h-4", "h-3"];
+  return (
+    <div className="flex min-w-[190px] items-center gap-3" aria-label="Voice note">
+      <audio ref={audio} src={url} preload="metadata" onEnded={() => { setPlaying(false); setProgress(0); }} onTimeUpdate={(event) => {
+        const el = event.currentTarget;
+        setProgress(el.duration ? el.currentTime / el.duration : 0);
+      }} />
+      <Button type="button" variant="secondary" size="icon" className="h-11 w-11 shrink-0 rounded-full" aria-label={playing ? "Pause voice note" : "Play voice note"} onClick={() => {
+        if (!audio.current) return;
+        if (audio.current.paused) void audio.current.play().then(() => setPlaying(true)).catch(() => toast.error("Could not play voice note."));
+        else { audio.current.pause(); setPlaying(false); }
+      }}>{playing ? <span className="font-bold">Ⅱ</span> : <Play />}</Button>
+      <div className="flex h-10 flex-1 items-center gap-0.5" role="progressbar" aria-valuenow={Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100} aria-label="Voice note progress">
+        {bars.map((height, index) => <span key={index} className={`w-1 flex-1 rounded-full ${height} ${index / bars.length <= progress ? "bg-primary" : "bg-muted-foreground/50"}`} />)}
+      </div>
+    </div>
+  );
+}
+
 function Attachment({ message }: { message: MessageRow }) {
   const url = useRemoteUrl("attachments", message.attachment_url);
   if (!url) return <span className="text-sm">Loading attachment…</span>;
+  if (message.media_kind === "voice" || message.attachment_type?.startsWith("audio/")) return <VoiceAttachment url={url} />;
   return (
     <a href={url} target="_blank" rel="noopener noreferrer" className="block">
       {message.attachment_type?.startsWith("image/") ? (
@@ -99,16 +123,6 @@ function Attachment({ message }: { message: MessageRow }) {
           className="max-h-80 w-full rounded-xl object-contain"
           loading="lazy"
         />
-      ) : message.media_kind === "voice" ? (
-        <span className="flex items-center gap-3 rounded-xl bg-secondary px-3 py-3">
-          <audio src={url} controls className="h-8 max-w-full" />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium">Voice message</span>
-            <span className="text-xs text-muted-foreground">
-              {message.media_duration ? `${message.media_duration}s` : "Audio"}
-            </span>
-          </span>
-        </span>
       ) : message.media_kind === "video-note" ? (
         <video src={url} controls playsInline className="h-44 w-44 rounded-full object-cover" />
       ) : message.attachment_type?.startsWith("video/") ? (
@@ -153,13 +167,18 @@ function Conversation() {
   const [editing, setEditing] = useState<MessageRow | null>(null);
   const [recording, setRecording] = useState<"voice" | "video-note" | null>(null);
   const [stickersOpen, setStickersOpen] = useState(false);
+  const [attachmentSheet, setAttachmentSheet] = useState(false);
+  const [now, setNow] = useState(Date.now());
   const [multiSelect, setMultiSelect] = useState<Set<string>>(new Set());
   const recorder = useRef<MediaRecorder | null>(null);
+  const recordingPending = useRef(false);
+  const releasePending = useRef(false);
   const recordedChunks = useRef<Blob[]>([]);
-  const recordStarted = useRef(0);
   const touchStart = useRef<number | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
+  const emojiInput = useRef<HTMLTextAreaElement>(null);
   const lastTyping = useRef(0);
 
   const refresh = useCallback(async () => {
@@ -168,9 +187,7 @@ function Conversation() {
       supabase.from("conversations").select("name, is_group").eq("id", id).single(),
       supabase
         .from("messages")
-        .select(
-          "id, conversation_id, sender_id, body, attachment_url, attachment_type, reply_to, effect, created_at, edited_at, deleted_at",
-        )
+        .select("*")
         .eq("conversation_id", id)
         .order("created_at", { ascending: true }),
       supabase
@@ -202,15 +219,7 @@ function Conversation() {
           .join(", ") ||
         "You",
     );
-    setMessages(
-      (rows.data ?? []).map((row) => ({
-        ...row,
-        attachment_name: null,
-        attachment_size: null,
-        media_duration: null,
-        media_kind: null,
-      })) as MessageRow[],
-    );
+    setMessages((rows.data ?? []) as MessageRow[]);
     const { data: calls, error: callsError } = await supabase
       .from("call_sessions")
       .select("*")
@@ -240,6 +249,19 @@ function Conversation() {
           .eq("user_id", user.id);
     }
   }, [id, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const update = async () => {
+      const ids = profiles.filter((p) => p.id !== user.id).map((p) => p.id);
+      if (!ids.length) return;
+      const { data } = await supabase.from("profiles").select("id, last_seen").in("id", ids);
+      if (data) setProfiles((current) => current.map((p) => ({ ...p, last_seen: data.find((row) => row.id === p.id)?.last_seen ?? p.last_seen })));
+      setNow(Date.now());
+    };
+    const timer = setInterval(() => void update(), 15000);
+    return () => clearInterval(timer);
+  }, [profiles.length, user]);
 
   useEffect(() => {
     if (!user) return;
@@ -320,7 +342,7 @@ function Conversation() {
           attachment_type: file?.type || null,
           reply_to: reply?.id ?? null,
         };
-         const result = await supabase.from("messages").insert(baseMessage);
+        const result = await supabase.from("messages").insert(baseMessage);
         const { error } = result;
         if (error) throw error;
       }
@@ -347,14 +369,22 @@ function Conversation() {
   }
 
   async function startRecording(kind: "voice" | "video-note") {
-    if (recording || !user) return;
-    const stream = await navigator.mediaDevices.getUserMedia({
+    if (recording || recordingPending.current || !user) return;
+    recordingPending.current = true;
+    releasePending.current = false;
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      toast.error("Recording is not available in this browser.");
+      recordingPending.current = false;
+      return;
+    }
+    let stream: MediaStream;
+    try { stream = await navigator.mediaDevices.getUserMedia({
       audio: true,
       video: kind === "video-note",
-    });
-    const mediaRecorder = new MediaRecorder(stream);
+    }); } catch { recordingPending.current = false; toast.error("Allow microphone access in your browser settings to record a voice note."); return; }
+    let mediaRecorder: MediaRecorder;
+    try { mediaRecorder = new MediaRecorder(stream); } catch { stream.getTracks().forEach((track) => track.stop()); recordingPending.current = false; toast.error("Recording is not supported on this device."); return; }
     recordedChunks.current = [];
-    recordStarted.current = Date.now();
     mediaRecorder.ondataavailable = (event) => {
       if (event.data.size) recordedChunks.current.push(event.data);
     };
@@ -364,12 +394,16 @@ function Conversation() {
     recorder.current = mediaRecorder;
     setRecording(kind);
     mediaRecorder.start();
+    recordingPending.current = false;
+    if (releasePending.current) void stopRecording(kind);
   }
 
-  async function stopRecording() {
+  async function stopRecording(pendingKind?: "voice" | "video-note") {
+    if (recordingPending.current) { releasePending.current = true; return; }
     const mediaRecorder = recorder.current;
-    const kind = recording;
+    const kind = pendingKind ?? recording;
     if (!mediaRecorder || !kind || !user) return;
+    recorder.current = null;
     const blob = await new Promise<Blob>((resolve) => {
       const finish = () =>
         resolve(
@@ -381,6 +415,7 @@ function Conversation() {
       if (mediaRecorder.state === "recording") mediaRecorder.stop();
       else finish();
     });
+    if (!blob.size) { toast.error("Recording was empty. Hold the microphone longer and try again."); setRecording(null); return; }
     const file = new globalThis.File([blob], `${kind}-${crypto.randomUUID()}.webm`, {
       type: blob.type,
     });
@@ -413,19 +448,6 @@ function Conversation() {
     });
   }
 
-  async function sendSticker(emoji: string) {
-    if (!user) return;
-    await supabase.from("messages").insert({
-      conversation_id: id,
-      sender_id: user.id,
-      body: emoji,
-      attachment_url: null,
-      attachment_type: null,
-      reply_to: null,
-    });
-    setStickersOpen(false);
-    await refresh();
-  }
   async function react(messageId: string, emoji: string) {
     if (!user) return;
     const exists = reactions.some(
@@ -468,15 +490,16 @@ function Conversation() {
       </main>
     );
   const other = profiles.find((p) => p.id !== user?.id);
+  const online = !group && isOnline(other?.last_seen) && now - new Date(other?.last_seen ?? 0).getTime() < 70_000;
   const lastOutgoing = messages.filter((m) => m.sender_id === user?.id).at(-1)?.id;
   return (
     <main className="mx-auto flex h-dvh w-full max-w-2xl flex-col bg-background text-foreground">
-      <header className="liquid-panel relative flex shrink-0 items-center justify-between px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <header className="liquid-chrome relative flex shrink-0 items-center justify-between px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <Button
           asChild
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-full text-foreground hover:bg-primary/10"
+          className="h-11 w-11 rounded-full text-foreground hover:bg-primary/10"
         >
           <Link to="/" aria-label="Back to messages">
             <ChevronLeft className="h-5 w-5" />
@@ -485,7 +508,7 @@ function Conversation() {
         <div className="flex min-w-0 flex-1 items-center justify-center gap-3">
           <div className="relative shrink-0">
             <ChatAvatar name={title} path={group ? null : other?.avatar_url} size={40} />
-            {!group && (
+            {online && (
               <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-presence" />
             )}
           </div>
@@ -494,14 +517,14 @@ function Conversation() {
               {title}
             </h1>
             <p className="truncate text-[11px] text-muted-foreground">
-              {typing.length > 0 ? "typing…" : "online"}
+              {typing.length > 0 ? "typing…" : group ? `${profiles.length} members` : online ? "Online" : "Offline"}
             </p>
           </div>
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-full text-foreground hover:bg-primary/10"
+          className="h-11 w-11 rounded-full text-foreground hover:bg-primary/10"
           aria-label="Conversation options"
         >
           <MoreHorizontal className="h-5 w-5" />
@@ -523,14 +546,10 @@ function Conversation() {
         ) : messages.length === 0 ? (
           <p className="py-10 text-center text-sm text-muted-foreground">No messages yet</p>
         ) : null}
-        {callEntries.map((call) => (
-          <CallEntry
-            key={call.id}
-            call={call}
-            onCallBack={() => void startCall(id, call.kind as "audio" | "video", title)}
-          />
-        ))}
-        {messages.map((m, i) => {
+        {([...messages.map((message) => ({ type: "message" as const, at: message.created_at, message })), ...callEntries.map((call) => ({ type: "call" as const, at: call.created_at, call }))].sort((a, b) => a.at.localeCompare(b.at))).map((item) => {
+          if (item.type === "call") return <CallEntry key={`call-${item.call.id}`} call={item.call} userId={user?.id} onCallBack={() => void startCall(id, item.call.kind, title)} />;
+          const m = item.message;
+          const i = messages.findIndex((message) => message.id === m.id);
           const own = m.sender_id === user?.id;
           const quoted = messages.find((x) => x.id === m.reply_to);
           const rs = reactions.filter((r) => r.message_id === m.id);
@@ -569,7 +588,7 @@ function Conversation() {
                   </span>
                 )}
                 <div
-                   className={`relative max-w-[82%] rounded-[26px] px-3.5 py-2 shadow-sm ${own ? "rounded-br-[10px] bg-bubble-out text-bubble-out-foreground" : "liquid-panel rounded-bl-[10px] text-foreground"}`}
+                   className={`relative max-w-[82%] rounded-[24px] px-3.5 py-2 shadow-sm ${own ? "rounded-br-lg bg-bubble-out text-bubble-out-foreground" : "rounded-bl-lg border border-border bg-bubble-in text-bubble-in-foreground"}`}
                   onDoubleClick={() => !m.deleted_at && setSelected(m.id)}
                   onContextMenu={(event) => {
                     event.preventDefault();
@@ -598,7 +617,7 @@ function Conversation() {
                   <div className="flex items-center gap-1">
                     {rs.length > 0 && (
                       <span
-                         className="liquid-panel rounded-full px-2 text-sm"
+                         className="rounded-full border border-border bg-card px-2 text-sm"
                         aria-label="Tapbacks"
                       >
                         {Array.from(new Set(rs.map((r) => r.emoji))).join(" ")}{" "}
@@ -608,7 +627,7 @@ function Conversation() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-7 text-muted-foreground"
+                      className="h-11 w-11 text-muted-foreground"
                       aria-label={`Message actions ${i + 1}`}
                       onClick={() => setSelected(selected === m.id ? null : m.id)}
                     >
@@ -727,7 +746,7 @@ function Conversation() {
         )}
         <div ref={bottom} />
       </section>
-       <footer className="liquid-panel shrink-0 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+       <footer className="liquid-chrome relative shrink-0 px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         {multiSelect.size > 0 && (
           <div className="mb-2 flex items-center justify-between rounded-lg bg-secondary px-3 py-2 text-sm">
             <span>{multiSelect.size} selected</span>
@@ -764,16 +783,19 @@ function Conversation() {
           <div
             className="mb-2 flex gap-2 overflow-x-auto rounded-xl bg-card p-3 text-3xl"
             role="dialog"
-            aria-label="Stickers"
+            aria-label="Emoji picker"
           >
-            {["🌈", "✨", "🔥", "🎈", "🫶", "🌻", "💫", "🥳"].map((sticker) => (
-              <button
-                key={sticker}
-                onClick={() => void sendSticker(sticker)}
-                aria-label={`Send sticker ${sticker}`}
+            {["😀", "😂", "🥰", "❤️", "👍", "🎉", "😭", "🙏", "🔥", "👋", "✨", "💙"].map((emoji) => (
+              <Button
+                key={emoji}
+                variant="ghost"
+                size="icon"
+                className="h-11 w-11 shrink-0 text-2xl"
+                onClick={() => { setBody((text) => text + emoji); setStickersOpen(false); emojiInput.current?.focus(); }}
+                aria-label={`Insert ${emoji}`}
               >
-                {sticker}
-              </button>
+                {emoji}
+              </Button>
             ))}
           </div>
         )}
@@ -783,7 +805,7 @@ function Conversation() {
           </div>
         )}
         <form
-           className="liquid-panel flex items-end gap-2 rounded-[28px] p-2 shadow-sm"
+           className="flex items-end gap-1 rounded-[24px] p-1"
           onSubmit={(e) => {
             e.preventDefault();
             void send();
@@ -800,14 +822,16 @@ function Conversation() {
               e.target.value = "";
             }}
           />
+          <input type="file" accept="image/*" capture="environment" ref={cameraInput} className="hidden" aria-label="Take a photo" onChange={(e) => { const f = e.target.files?.[0]; if (f?.size && f.size > 25 * 1024 * 1024) toast.error("Choose a photo smaller than 25 MB."); else if (f) setFile(f); e.target.value = ""; }} />
+          {attachmentSheet && <div className="absolute bottom-full left-3 mb-2 flex gap-2 rounded-2xl border border-border bg-popover p-2 shadow-lg"><Button type="button" variant="secondary" onClick={() => { input.current?.click(); setAttachmentSheet(false); }}>Photo or file</Button><Button type="button" variant="secondary" onClick={() => { cameraInput.current?.click(); setAttachmentSheet(false); }}>Camera</Button></div>}
           <Button
             type="button"
             variant="ghost"
             size="icon"
             aria-label="Attach photo or file"
             disabled={busy || !!editing || !ready || !!error}
-            onClick={() => input.current?.click()}
-             className="h-9 w-9 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
+            onClick={() => setAttachmentSheet((value) => !value)}
+             className="h-11 w-11 shrink-0 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
           >
             <Paperclip className="h-4 w-4" />
           </Button>
@@ -815,9 +839,9 @@ function Conversation() {
             type="button"
             variant="ghost"
             size="icon"
-            aria-label="Open stickers"
+            aria-label="Open emoji picker"
             onClick={() => setStickersOpen((value) => !value)}
-             className="h-9 w-9 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
+             className="h-11 w-11 shrink-0 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
           >
             <Smile className="h-4 w-4" />
           </Button>
@@ -826,10 +850,10 @@ function Conversation() {
             variant="ghost"
             size="icon"
             aria-label="Hold to record voice note"
-            onPointerDown={() => void startRecording("voice")}
+            onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); void startRecording("voice"); }}
             onPointerUp={() => void stopRecording()}
             onPointerCancel={() => void stopRecording()}
-             className="h-9 w-9 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
+             className="h-11 w-11 shrink-0 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
           >
             <Mic className="h-4 w-4" />
           </Button>
@@ -837,21 +861,20 @@ function Conversation() {
             type="button"
             variant="ghost"
             size="icon"
-            aria-label="Hold to record circular video note"
-            onPointerDown={() => void startRecording("video-note")}
-            onPointerUp={() => void stopRecording()}
-            onPointerCancel={() => void stopRecording()}
-             className="h-9 w-9 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
+            aria-label="Take a photo"
+            onClick={() => cameraInput.current?.click()}
+             className="h-11 w-11 shrink-0 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
           >
             <Camera className="h-4 w-4" />
           </Button>
           <textarea
+            ref={emojiInput}
             aria-label="Message"
             placeholder="Message"
             rows={1}
             value={body}
             disabled={busy || !!error}
-             className="max-h-32 min-h-10 min-w-0 flex-1 resize-none rounded-[24px] border border-glass-border bg-glass px-4 py-2 text-[15px] text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+             className="max-h-32 min-h-11 min-w-0 flex-1 resize-none rounded-[24px] border border-border bg-card px-4 py-2 text-[15px] text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
             onChange={(e) => {
               setBody(e.target.value);
               if (user && Date.now() - lastTyping.current > 1500) {
@@ -873,7 +896,7 @@ function Conversation() {
           <Button
             type="submit"
             size="icon"
-             className="mb-0.5 h-10 w-10 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+             className="h-11 w-11 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
             aria-label={editing ? "Save message" : "Send message"}
             disabled={busy || !ready || !!error || (!body.trim() && !file)}
           >
