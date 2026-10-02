@@ -174,7 +174,6 @@ function Conversation() {
   const recordingPending = useRef(false);
   const releasePending = useRef(false);
   const recordedChunks = useRef<Blob[]>([]);
-  const recordStarted = useRef(0);
   const touchStart = useRef<number | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -383,9 +382,9 @@ function Conversation() {
       audio: true,
       video: kind === "video-note",
     }); } catch { recordingPending.current = false; toast.error("Allow microphone access in your browser settings to record a voice note."); return; }
-    const mediaRecorder = new MediaRecorder(stream);
+    let mediaRecorder: MediaRecorder;
+    try { mediaRecorder = new MediaRecorder(stream); } catch { stream.getTracks().forEach((track) => track.stop()); recordingPending.current = false; toast.error("Recording is not supported on this device."); return; }
     recordedChunks.current = [];
-    recordStarted.current = Date.now();
     mediaRecorder.ondataavailable = (event) => {
       if (event.data.size) recordedChunks.current.push(event.data);
     };
@@ -449,19 +448,6 @@ function Conversation() {
     });
   }
 
-  async function sendSticker(emoji: string) {
-    if (!user) return;
-    await supabase.from("messages").insert({
-      conversation_id: id,
-      sender_id: user.id,
-      body: emoji,
-      attachment_url: null,
-      attachment_type: null,
-      reply_to: null,
-    });
-    setStickersOpen(false);
-    await refresh();
-  }
   async function react(messageId: string, emoji: string) {
     if (!user) return;
     const exists = reactions.some(
