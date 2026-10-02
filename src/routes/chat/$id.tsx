@@ -171,6 +171,8 @@ function Conversation() {
   const [now, setNow] = useState(Date.now());
   const [multiSelect, setMultiSelect] = useState<Set<string>>(new Set());
   const recorder = useRef<MediaRecorder | null>(null);
+  const recordingPending = useRef(false);
+  const releasePending = useRef(false);
   const recordedChunks = useRef<Blob[]>([]);
   const recordStarted = useRef(0);
   const touchStart = useRef<number | null>(null);
@@ -370,16 +372,19 @@ function Conversation() {
   }
 
   async function startRecording(kind: "voice" | "video-note") {
-    if (recording || !user) return;
+    if (recording || recordingPending.current || !user) return;
+    recordingPending.current = true;
+    releasePending.current = false;
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       toast.error("Recording is not available in this browser.");
+      recordingPending.current = false;
       return;
     }
     let stream: MediaStream;
     try { stream = await navigator.mediaDevices.getUserMedia({
       audio: true,
       video: kind === "video-note",
-    }); } catch { toast.error("Allow microphone access in your browser settings to record a voice note."); return; }
+    }); } catch { recordingPending.current = false; toast.error("Allow microphone access in your browser settings to record a voice note."); return; }
     const mediaRecorder = new MediaRecorder(stream);
     recordedChunks.current = [];
     recordStarted.current = Date.now();
@@ -392,12 +397,16 @@ function Conversation() {
     recorder.current = mediaRecorder;
     setRecording(kind);
     mediaRecorder.start();
+    recordingPending.current = false;
+    if (releasePending.current) void stopRecording(kind);
   }
 
-  async function stopRecording() {
+  async function stopRecording(pendingKind?: "voice" | "video-note") {
+    if (recordingPending.current) { releasePending.current = true; return; }
     const mediaRecorder = recorder.current;
-    const kind = recording;
+    const kind = pendingKind ?? recording;
     if (!mediaRecorder || !kind || !user) return;
+    recorder.current = null;
     const blob = await new Promise<Blob>((resolve) => {
       const finish = () =>
         resolve(
@@ -762,7 +771,7 @@ function Conversation() {
         )}
         <div ref={bottom} />
       </section>
-       <footer className="liquid-panel shrink-0 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+       <footer className="liquid-chrome relative shrink-0 px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         {multiSelect.size > 0 && (
           <div className="mb-2 flex items-center justify-between rounded-lg bg-secondary px-3 py-2 text-sm">
             <span>{multiSelect.size} selected</span>
@@ -799,16 +808,19 @@ function Conversation() {
           <div
             className="mb-2 flex gap-2 overflow-x-auto rounded-xl bg-card p-3 text-3xl"
             role="dialog"
-            aria-label="Stickers"
+            aria-label="Emoji picker"
           >
-            {["🌈", "✨", "🔥", "🎈", "🫶", "🌻", "💫", "🥳"].map((sticker) => (
-              <button
-                key={sticker}
-                onClick={() => void sendSticker(sticker)}
-                aria-label={`Send sticker ${sticker}`}
+            {["😀", "😂", "🥰", "❤️", "👍", "🎉", "😭", "🙏", "🔥", "👋", "✨", "💙"].map((emoji) => (
+              <Button
+                key={emoji}
+                variant="ghost"
+                size="icon"
+                className="h-11 w-11 shrink-0 text-2xl"
+                onClick={() => { setBody((text) => text + emoji); setStickersOpen(false); emojiInput.current?.focus(); }}
+                aria-label={`Insert ${emoji}`}
               >
-                {sticker}
-              </button>
+                {emoji}
+              </Button>
             ))}
           </div>
         )}
