@@ -14,7 +14,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Primary"
-      className="liquid-panel sticky bottom-0 z-20 mt-auto grid shrink-0 grid-cols-6 rounded-t-[28px] border-b-0 pb-[max(0.4rem,env(safe-area-inset-bottom))] pt-2 shadow-lg"
+      className="liquid-chrome sticky bottom-0 z-20 mt-auto grid shrink-0 grid-cols-6 rounded-t-[24px] border-b-0 pb-[max(0.4rem,env(safe-area-inset-bottom))] pt-2 shadow-lg"
     >
       {TABS.map(({ to, label, Icon, exact }) => (
         <Link
@@ -23,7 +23,7 @@ export function BottomNav() {
           activeOptions={{ exact }}
           activeProps={{ className: "text-primary bg-primary/10", "aria-current": "page" }}
           inactiveProps={{ className: "text-muted-foreground" }}
-          className="flex min-w-0 flex-col items-center gap-0.5 rounded-[24px] py-1.5 text-[10px] font-semibold transition active:scale-95 sm:text-[11px]"
+          className="flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-[24px] py-1.5 text-[10px] font-semibold transition active:scale-95 sm:text-[11px]"
         >
           <Icon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
           {label}
