@@ -91,7 +91,7 @@ function VoiceAttachment({ url }: { url: string }) {
   const audio = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
-  const bars = [12, 20, 13, 26, 17, 30, 14, 22, 28, 15, 24, 12, 19, 27, 14, 21, 12, 25, 17, 11];
+  const bars = ["h-3", "h-5", "h-3", "h-6", "h-4", "h-7", "h-3", "h-5", "h-7", "h-4", "h-6", "h-3", "h-5", "h-7", "h-3", "h-5", "h-3", "h-6", "h-4", "h-3"];
   return (
     <div className="flex min-w-[190px] items-center gap-3" aria-label="Voice note">
       <audio ref={audio} src={url} preload="metadata" onEnded={() => { setPlaying(false); setProgress(0); }} onTimeUpdate={(event) => {
@@ -104,7 +104,7 @@ function VoiceAttachment({ url }: { url: string }) {
         else { audio.current.pause(); setPlaying(false); }
       }}>{playing ? <span className="font-bold">Ⅱ</span> : <Play />}</Button>
       <div className="flex h-10 flex-1 items-center gap-0.5" role="progressbar" aria-valuenow={Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100} aria-label="Voice note progress">
-        {bars.map((height, index) => <span key={index} className={`w-1 flex-1 rounded-full ${index / bars.length <= progress ? "bg-primary" : "bg-muted-foreground/50"}`} style={{ height }} />)}
+        {bars.map((height, index) => <span key={index} className={`w-1 flex-1 rounded-full ${height} ${index / bars.length <= progress ? "bg-primary" : "bg-muted-foreground/50"}`} />)}
       </div>
     </div>
   );
@@ -546,15 +546,10 @@ function Conversation() {
         ) : messages.length === 0 ? (
           <p className="py-10 text-center text-sm text-muted-foreground">No messages yet</p>
         ) : null}
-        {callEntries.map((call) => (
-          <CallEntry
-            key={call.id}
-            call={call}
-            userId={user?.id}
-            onCallBack={() => void startCall(id, call.kind as "audio" | "video", title)}
-          />
-        ))}
-        {messages.map((m, i) => {
+        {([...messages.map((message) => ({ type: "message" as const, at: message.created_at, message })), ...callEntries.map((call) => ({ type: "call" as const, at: call.created_at, call }))].sort((a, b) => a.at.localeCompare(b.at))).map((item) => {
+          if (item.type === "call") return <CallEntry key={`call-${item.call.id}`} call={item.call} userId={user?.id} onCallBack={() => void startCall(id, item.call.kind, title)} />;
+          const m = item.message;
+          const i = messages.findIndex((message) => message.id === m.id);
           const own = m.sender_id === user?.id;
           const quoted = messages.find((x) => x.id === m.reply_to);
           const rs = reactions.filter((r) => r.message_id === m.id);
