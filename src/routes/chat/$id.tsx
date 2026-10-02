@@ -341,8 +341,6 @@ function Conversation() {
           body: body.trim() || null,
           attachment_url: path,
           attachment_type: file?.type || null,
-          attachment_name: file?.name ?? null,
-          attachment_size: file?.size ?? null,
           reply_to: reply?.id ?? null,
         };
         const result = await supabase.from("messages").insert(baseMessage);
@@ -431,10 +429,6 @@ function Conversation() {
         body: null,
         attachment_url: path,
         attachment_type: file.type,
-        attachment_name: file.name,
-        attachment_size: file.size,
-        media_kind: kind,
-        media_duration: Math.max(1, Math.round((Date.now() - recordStarted.current) / 1000)),
         reply_to: reply?.id ?? null,
       };
        const result = await supabase.from("messages").insert(recordedMessage);
