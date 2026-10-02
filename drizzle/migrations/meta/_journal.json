@@ -71,6 +71,13 @@
       "when": 1790815639572,
       "tag": "0009_social_feed",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790910736049,
+      "tag": "0010_social_post_views_and_saves",
+      "breakpoints": true
     }
   ]
 }

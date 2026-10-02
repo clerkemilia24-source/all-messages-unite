@@ -6,6 +6,13 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+type TableShape<Row, Insert = Partial<Row>> = {
+  Row: Row
+  Insert: Insert
+  Update: Partial<Row>
+  Relationships: []
+}
+
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
@@ -58,6 +65,10 @@ export type Database = {
           },
         ]
       }
+      call_cohosts: TableShape<
+        { call_id: string; user_id: string; assigned_at: string },
+        { call_id: string; user_id: string; assigned_at?: string }
+      >
       conversation_members: {
         Row: {
           conversation_id: string
@@ -116,6 +127,8 @@ export type Database = {
       }
       messages: {
         Row: {
+          attachment_name: string | null
+          attachment_size: number | null
           attachment_type: string | null
           attachment_url: string | null
           body: string | null
@@ -125,10 +138,14 @@ export type Database = {
           edited_at: string | null
           effect: string | null
           id: string
+          media_duration: number | null
+          media_kind: string | null
           reply_to: string | null
           sender_id: string
         }
         Insert: {
+          attachment_name?: string | null
+          attachment_size?: number | null
           attachment_type?: string | null
           attachment_url?: string | null
           body?: string | null
@@ -138,10 +155,14 @@ export type Database = {
           edited_at?: string | null
           effect?: string | null
           id?: string
+          media_duration?: number | null
+          media_kind?: string | null
           reply_to?: string | null
           sender_id: string
         }
         Update: {
+          attachment_name?: string | null
+          attachment_size?: number | null
           attachment_type?: string | null
           attachment_url?: string | null
           body?: string | null
@@ -151,6 +172,8 @@ export type Database = {
           edited_at?: string | null
           effect?: string | null
           id?: string
+          media_duration?: number | null
+          media_kind?: string | null
           reply_to?: string | null
           sender_id?: string
         }
@@ -242,6 +265,82 @@ export type Database = {
           },
         ]
       }
+      social_follows: TableShape<
+        { follower_id: string; following_id: string; created_at: string },
+        { follower_id: string; following_id: string; created_at?: string }
+      >
+      social_posts: TableShape<
+        {
+          id: string
+          author_id: string
+          body: string | null
+          media_path: string | null
+          media_type: string | null
+          visibility: string
+          moderation_status: string
+          repost_of: string | null
+          created_at: string
+        },
+        {
+          id?: string
+          author_id: string
+          body?: string | null
+          media_path?: string | null
+          media_type?: string | null
+          visibility?: string
+          moderation_status?: string
+          repost_of?: string | null
+          created_at?: string
+        }
+      >
+      social_post_likes: TableShape<
+        { post_id: string; user_id: string; created_at: string },
+        { post_id: string; user_id: string; created_at?: string }
+      >
+      social_post_comments: TableShape<
+        {
+          id: string
+          post_id: string
+          author_id: string
+          body: string
+          moderation_status: string
+          created_at: string
+        },
+        {
+          id?: string
+          post_id: string
+          author_id: string
+          body: string
+          moderation_status?: string
+          created_at?: string
+        }
+      >
+      social_post_reports: TableShape<
+        {
+          id: string
+          post_id: string
+          reporter_id: string
+          reason: string
+          details: string | null
+          created_at: string
+        },
+        {
+          id?: string
+          post_id: string
+          reporter_id: string
+          reason: string
+          details?: string | null
+          created_at?: string
+        }
+      >
+      social_post_views: TableShape<
+        { post_id: string; viewer_id: string; viewed_on: string },
+        { post_id: string; viewer_id: string; viewed_on?: string }
+      >
+      social_post_saves: TableShape<
+        { post_id: string; user_id: string; saved_at: string },
+        { post_id: string; user_id: string; saved_at?: string }
+      >
       status_posts: {
         Row: {
           author_id: string
@@ -342,6 +441,18 @@ export type Database = {
       is_member: {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
+      }
+      set_call_cohost: {
+        Args: { _call_id: string; _user_id: string; _is_cohost: boolean }
+        Returns: undefined
+      }
+      record_social_post_view: {
+        Args: { _post_id: string }
+        Returns: boolean
+      }
+      get_social_post_view_counts: {
+        Args: { _post_ids: string[] }
+        Returns: { post_id: string; view_count: number }[]
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }

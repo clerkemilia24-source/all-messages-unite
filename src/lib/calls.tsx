@@ -243,6 +243,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const remoteMedia = useRef<HTMLDivElement>(null);
   const localVideo = useRef<HTMLVideoElement>(null);
   const ringTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const callStartPending = useRef(false);
   const participantNames = useRef(new Map<string, string>());
   const speakerIdentity = useRef<string | null>(null);
 
@@ -344,6 +345,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
           if (track.kind === Track.Kind.Video) {
             const tile = document.createElement("div");
             tile.dataset["callTrack"] = track.sid;
+            tile.dataset["participantId"] = participant.identity;
             tile.dataset["speaker"] =
               participant.identity === speakerIdentity.current ? "true" : "false";
             tile.className = "relative min-h-0 overflow-hidden rounded-xl bg-black/40";
@@ -384,7 +386,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         setSpeakerId(identity);
         const tiles = remoteMedia.current?.querySelectorAll<HTMLElement>("[data-call-track]");
         tiles?.forEach((tile) => {
-          tile.dataset["speaker"] = tile.dataset["callTrack"] === identity ? "true" : "false";
+          tile.dataset["speaker"] = tile.dataset["participantId"] === identity ? "true" : "false";
         });
         const mainTile = remoteMedia.current?.querySelector<HTMLElement>('[data-speaker="true"]');
         if (mainTile) remoteMedia.current?.prepend(mainTile);
@@ -436,6 +438,16 @@ export function CallProvider({ children }: { children: ReactNode }) {
       });
       room.on(RoomEvent.Disconnected, () => {
         void teardown();
+      });
+      room.on(RoomEvent.Reconnecting, () => {
+        setActive((current) =>
+          current?.call.id === call.id ? { ...current, connected: false } : current,
+        );
+      });
+      room.on(RoomEvent.Reconnected, () => {
+        setActive((current) =>
+          current?.call.id === call.id ? { ...current, connected: true } : current,
+        );
       });
 
       try {
@@ -582,6 +594,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const startCall = useCallback(
     async (conversationId: string, kind: CallKind, peerName: string) => {
       if (!user) return;
+      if (active || callStartPending.current) {
+        toast.error("Finish your current call before starting another.");
+        return;
+      }
+      callStartPending.current = true;
+      let createdCallId: string | null = null;
       try {
         await requestCallMedia(kind);
         const { data: conversation } = await supabase
@@ -601,6 +619,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
           .single();
         if (error || !data) throw error ?? new Error("no call");
         const call = data as CallRow;
+        createdCallId = call.id;
         setActive({
           call,
           role: "participant",
@@ -621,11 +640,22 @@ export function CallProvider({ children }: { children: ReactNode }) {
         await connect(call);
       } catch (error) {
         console.error("[calls] Outgoing call failed", error);
+        if (createdCallId) {
+          const { error: statusError } = await supabase
+            .from("call_sessions")
+            .update({ status: "missed", ended_at: new Date().toISOString() })
+            .eq("id", createdCallId)
+            .in("status", ["ringing", "accepted"]);
+          if (statusError)
+            console.error("[calls] Could not close failed outgoing call", statusError);
+        }
         toast.error(callErrorMessage(error));
         await teardown();
+      } finally {
+        callStartPending.current = false;
       }
     },
-    [user, connect, teardown],
+    [user, active, connect, teardown],
   );
 
   // Incoming calls: row-level security only exposes calls in my conversations.
@@ -696,10 +726,16 @@ export function CallProvider({ children }: { children: ReactNode }) {
     if (!active) return;
     try {
       await requestCallMedia(active.call.kind);
-      await supabase
+      const { data: acceptedCall, error: acceptError } = await supabase
         .from("call_sessions")
         .update({ status: "accepted", answered_at: new Date().toISOString() })
-        .eq("id", active.call.id);
+        .eq("id", active.call.id)
+        .eq("status", "ringing")
+        .select("id")
+        .maybeSingle();
+      if (acceptError || !acceptedCall) {
+        throw acceptError ?? new Error("This call is no longer ringing.");
+      }
       await connect(active.call);
     } catch (error) {
       console.error("[calls] Incoming call failed", error);
