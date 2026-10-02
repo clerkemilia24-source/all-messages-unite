@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
+import { useAuth, isOnline } from "@/lib/auth";
 import { type MessageRow, type ProfileLite, formatDivider } from "@/lib/chat";
 import { uploadFile } from "@/lib/storage";
 import { ChatAvatar, useRemoteUrl } from "@/components/RemoteImage";
@@ -52,7 +52,7 @@ type Reaction = { message_id: string; user_id: string; emoji: string };
 type Member = { user_id: string; last_read_at: string };
 
 function CallEntry({ call, onCallBack }: { call: CallRow; onCallBack: () => void }) {
-  const outgoing = call.status === "ended" || call.status === "missed";
+  const outgoing = call.initiator_id === undefined ? false : call.initiator_id === onCallBackUserId;
   const Icon = call.kind === "video" ? Video : Phone;
   const label =
     call.status === "declined"
