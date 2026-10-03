@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { unregisterFirebaseDevice } from "@/lib/push-notifications";
 
 export type Profile = {
   id: string;
@@ -70,7 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!userId) return;
     const beat = () => {
-      void supabase.from("profiles").update({ last_seen: new Date().toISOString() }).eq("id", userId);
+      void supabase
+        .from("profiles")
+        .update({ last_seen: new Date().toISOString() })
+        .eq("id", userId);
     };
     beat();
     const t = setInterval(beat, 30000);
@@ -86,6 +90,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         refreshProfile: loadProfile,
         signOut: async () => {
+          if (userId && typeof window !== "undefined") {
+            try {
+              await unregisterFirebaseDevice(userId);
+            } catch (error) {
+              console.warn("[notifications] Could not remove this device during sign-out", error);
+            }
+          }
           await supabase.auth.signOut();
           setProfile(null);
         },

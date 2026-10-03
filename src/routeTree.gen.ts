@@ -12,15 +12,22 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CallsRouteImport } from './routes/calls'
+import { Route as CoinRouteImport } from './routes/coin'
 import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as FeedRouteImport } from './routes/feed'
+import { Route as LiveRouteImport } from './routes/live'
 import { Route as NewRouteImport } from './routes/new'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as StatusRouteImport } from './routes/status'
+import { Route as WalletRouteImport } from './routes/wallet'
 import { Route as ChatIdRouteImport } from './routes/chat/$id'
+import { Route as ApiWebhooksStripeRouteImport } from './routes/api/webhooks/stripe'
+import { Route as WalletTransactionsTransactionIdRouteImport } from './routes/wallet/transactions/$transactionId'
+import { Route as ApiPublicCronShopCleanupRouteImport } from './routes/api/public/cron/shop-cleanup'
 import { Route as ApiPublicCronStatusCleanupRouteImport } from './routes/api/public/cron/status-cleanup'
+import { Route as ApiPublicCronWalletCleanupRouteImport } from './routes/api/public/cron/wallet-cleanup'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -37,6 +44,11 @@ const CallsRoute = CallsRouteImport.update({
   path: '/calls',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CoinRoute = CoinRouteImport.update({
+  id: '/coin',
+  path: '/coin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContactsRoute = ContactsRouteImport.update({
   id: '/contacts',
   path: '/contacts',
@@ -45,6 +57,11 @@ const ContactsRoute = ContactsRouteImport.update({
 const FeedRoute = FeedRouteImport.update({
   id: '/feed',
   path: '/feed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LiveRoute = LiveRouteImport.update({
+  id: '/live',
+  path: '/live',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NewRoute = NewRouteImport.update({
@@ -72,15 +89,43 @@ const StatusRoute = StatusRouteImport.update({
   path: '/status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WalletRoute = WalletRouteImport.update({
+  id: '/wallet',
+  path: '/wallet',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatIdRoute = ChatIdRouteImport.update({
   id: '/chat/$id',
   path: '/chat/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWebhooksStripeRoute = ApiWebhooksStripeRouteImport.update({
+  id: '/api/webhooks/stripe',
+  path: '/api/webhooks/stripe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WalletTransactionsTransactionIdRoute =
+  WalletTransactionsTransactionIdRouteImport.update({
+    id: '/transactions/$transactionId',
+    path: '/transactions/$transactionId',
+    getParentRoute: () => WalletRoute,
+  } as any)
+const ApiPublicCronShopCleanupRoute =
+  ApiPublicCronShopCleanupRouteImport.update({
+    id: '/api/public/cron/shop-cleanup',
+    path: '/api/public/cron/shop-cleanup',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronStatusCleanupRoute =
   ApiPublicCronStatusCleanupRouteImport.update({
     id: '/api/public/cron/status-cleanup',
     path: '/api/public/cron/status-cleanup',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicCronWalletCleanupRoute =
+  ApiPublicCronWalletCleanupRouteImport.update({
+    id: '/api/public/cron/wallet-cleanup',
+    path: '/api/public/cron/wallet-cleanup',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -88,44 +133,65 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/calls': typeof CallsRoute
+  '/coin': typeof CoinRoute
   '/contacts': typeof ContactsRoute
   '/feed': typeof FeedRoute
+  '/live': typeof LiveRoute
   '/new': typeof NewRoute
   '/profile': typeof ProfileRoute
   '/settings': typeof SettingsRoute
   '/shop': typeof ShopRoute
   '/status': typeof StatusRoute
+  '/wallet': typeof WalletRouteWithChildren
   '/chat/$id': typeof ChatIdRoute
+  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
+  '/wallet/transactions/$transactionId': typeof WalletTransactionsTransactionIdRoute
+  '/api/public/cron/shop-cleanup': typeof ApiPublicCronShopCleanupRoute
   '/api/public/cron/status-cleanup': typeof ApiPublicCronStatusCleanupRoute
+  '/api/public/cron/wallet-cleanup': typeof ApiPublicCronWalletCleanupRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/calls': typeof CallsRoute
+  '/coin': typeof CoinRoute
   '/contacts': typeof ContactsRoute
   '/feed': typeof FeedRoute
+  '/live': typeof LiveRoute
   '/new': typeof NewRoute
   '/profile': typeof ProfileRoute
   '/settings': typeof SettingsRoute
   '/shop': typeof ShopRoute
   '/status': typeof StatusRoute
+  '/wallet': typeof WalletRouteWithChildren
   '/chat/$id': typeof ChatIdRoute
+  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
+  '/wallet/transactions/$transactionId': typeof WalletTransactionsTransactionIdRoute
+  '/api/public/cron/shop-cleanup': typeof ApiPublicCronShopCleanupRoute
   '/api/public/cron/status-cleanup': typeof ApiPublicCronStatusCleanupRoute
+  '/api/public/cron/wallet-cleanup': typeof ApiPublicCronWalletCleanupRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/calls': typeof CallsRoute
+  '/coin': typeof CoinRoute
   '/contacts': typeof ContactsRoute
   '/feed': typeof FeedRoute
+  '/live': typeof LiveRoute
   '/new': typeof NewRoute
   '/profile': typeof ProfileRoute
   '/settings': typeof SettingsRoute
   '/shop': typeof ShopRoute
   '/status': typeof StatusRoute
+  '/wallet': typeof WalletRouteWithChildren
   '/chat/$id': typeof ChatIdRoute
+  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
+  '/wallet/transactions/$transactionId': typeof WalletTransactionsTransactionIdRoute
+  '/api/public/cron/shop-cleanup': typeof ApiPublicCronShopCleanupRoute
   '/api/public/cron/status-cleanup': typeof ApiPublicCronStatusCleanupRoute
+  '/api/public/cron/wallet-cleanup': typeof ApiPublicCronWalletCleanupRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -133,58 +199,85 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/calls'
+    | '/coin'
     | '/contacts'
     | '/feed'
+    | '/live'
     | '/new'
     | '/profile'
     | '/settings'
     | '/shop'
     | '/status'
+    | '/wallet'
     | '/chat/$id'
+    | '/api/webhooks/stripe'
+    | '/wallet/transactions/$transactionId'
+    | '/api/public/cron/shop-cleanup'
     | '/api/public/cron/status-cleanup'
+    | '/api/public/cron/wallet-cleanup'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/calls'
+    | '/coin'
     | '/contacts'
     | '/feed'
+    | '/live'
     | '/new'
     | '/profile'
     | '/settings'
     | '/shop'
     | '/status'
+    | '/wallet'
     | '/chat/$id'
+    | '/api/webhooks/stripe'
+    | '/wallet/transactions/$transactionId'
+    | '/api/public/cron/shop-cleanup'
     | '/api/public/cron/status-cleanup'
+    | '/api/public/cron/wallet-cleanup'
   id:
     | '__root__'
     | '/'
     | '/auth'
     | '/calls'
+    | '/coin'
     | '/contacts'
     | '/feed'
+    | '/live'
     | '/new'
     | '/profile'
     | '/settings'
     | '/shop'
     | '/status'
+    | '/wallet'
     | '/chat/$id'
+    | '/api/webhooks/stripe'
+    | '/wallet/transactions/$transactionId'
+    | '/api/public/cron/shop-cleanup'
     | '/api/public/cron/status-cleanup'
+    | '/api/public/cron/wallet-cleanup'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   CallsRoute: typeof CallsRoute
+  CoinRoute: typeof CoinRoute
   ContactsRoute: typeof ContactsRoute
   FeedRoute: typeof FeedRoute
+  LiveRoute: typeof LiveRoute
   NewRoute: typeof NewRoute
   ProfileRoute: typeof ProfileRoute
   SettingsRoute: typeof SettingsRoute
   ShopRoute: typeof ShopRoute
   StatusRoute: typeof StatusRoute
+  WalletRoute: typeof WalletRouteWithChildren
   ChatIdRoute: typeof ChatIdRoute
+  ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
+  ApiPublicCronShopCleanupRoute: typeof ApiPublicCronShopCleanupRoute
   ApiPublicCronStatusCleanupRoute: typeof ApiPublicCronStatusCleanupRoute
+  ApiPublicCronWalletCleanupRoute: typeof ApiPublicCronWalletCleanupRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -210,6 +303,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CallsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/coin': {
+      id: '/coin'
+      path: '/coin'
+      fullPath: '/coin'
+      preLoaderRoute: typeof CoinRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/contacts': {
       id: '/contacts'
       path: '/contacts'
@@ -222,6 +322,13 @@ declare module '@tanstack/react-router' {
       path: '/feed'
       fullPath: '/feed'
       preLoaderRoute: typeof FeedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/live': {
+      id: '/live'
+      path: '/live'
+      fullPath: '/live'
+      preLoaderRoute: typeof LiveRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/new': {
@@ -259,11 +366,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/wallet': {
+      id: '/wallet'
+      path: '/wallet'
+      fullPath: '/wallet'
+      preLoaderRoute: typeof WalletRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/chat/$id': {
       id: '/chat/$id'
       path: '/chat/$id'
       fullPath: '/chat/$id'
       preLoaderRoute: typeof ChatIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/stripe': {
+      id: '/api/webhooks/stripe'
+      path: '/api/webhooks/stripe'
+      fullPath: '/api/webhooks/stripe'
+      preLoaderRoute: typeof ApiWebhooksStripeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/wallet/transactions/$transactionId': {
+      id: '/wallet/transactions/$transactionId'
+      path: '/transactions/$transactionId'
+      fullPath: '/wallet/transactions/$transactionId'
+      preLoaderRoute: typeof WalletTransactionsTransactionIdRouteImport
+      parentRoute: typeof WalletRoute
+    }
+    '/api/public/cron/shop-cleanup': {
+      id: '/api/public/cron/shop-cleanup'
+      path: '/api/public/cron/shop-cleanup'
+      fullPath: '/api/public/cron/shop-cleanup'
+      preLoaderRoute: typeof ApiPublicCronShopCleanupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/cron/status-cleanup': {
@@ -273,22 +408,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronStatusCleanupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/wallet-cleanup': {
+      id: '/api/public/cron/wallet-cleanup'
+      path: '/api/public/cron/wallet-cleanup'
+      fullPath: '/api/public/cron/wallet-cleanup'
+      preLoaderRoute: typeof ApiPublicCronWalletCleanupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
+
+interface WalletRouteChildren {
+  WalletTransactionsTransactionIdRoute: typeof WalletTransactionsTransactionIdRoute
+}
+
+const WalletRouteChildren: WalletRouteChildren = {
+  WalletTransactionsTransactionIdRoute: WalletTransactionsTransactionIdRoute,
+}
+
+const WalletRouteWithChildren =
+  WalletRoute._addFileChildren(WalletRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   CallsRoute: CallsRoute,
+  CoinRoute: CoinRoute,
   ContactsRoute: ContactsRoute,
   FeedRoute: FeedRoute,
+  LiveRoute: LiveRoute,
   NewRoute: NewRoute,
   ProfileRoute: ProfileRoute,
   SettingsRoute: SettingsRoute,
   ShopRoute: ShopRoute,
   StatusRoute: StatusRoute,
+  WalletRoute: WalletRouteWithChildren,
   ChatIdRoute: ChatIdRoute,
+  ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
+  ApiPublicCronShopCleanupRoute: ApiPublicCronShopCleanupRoute,
   ApiPublicCronStatusCleanupRoute: ApiPublicCronStatusCleanupRoute,
+  ApiPublicCronWalletCleanupRoute: ApiPublicCronWalletCleanupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

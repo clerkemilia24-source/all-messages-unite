@@ -8,12 +8,14 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { toast } from "sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { AuthProvider } from "../lib/auth";
+import { AuthProvider, useAuth } from "../lib/auth";
 import { CallProvider } from "../lib/calls";
 import { Toaster } from "../components/ui/sonner";
+import { listenForForegroundPush, registerFirebaseDevice } from "../lib/push-notifications";
 
 function NotFoundComponent() {
   return (
@@ -123,6 +125,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <PushNotificationManager />
         <CallProvider>
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
           <Outlet />
@@ -131,4 +134,66 @@ function RootComponent() {
       </AuthProvider>
     </QueryClientProvider>
   );
+}
+
+function PushNotificationManager() {
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user || typeof window === "undefined" || !("Notification" in window)) return;
+    let active = true;
+    let unsubscribe = () => {};
+
+    const showMessage = (payload: import("firebase/messaging").MessagePayload) => {
+      const title = payload.notification?.title ?? payload.data?.["title"] ?? "Ripple";
+      const body = payload.notification?.body ?? payload.data?.["body"] ?? "";
+      const deepLink = payload.data?.["deepLink"] ?? payload.data?.["link"];
+      toast(title, {
+        description: body,
+        ...(deepLink
+          ? {
+              action: {
+                label: "Open",
+                onClick: () => {
+                  try {
+                    const url = new URL(deepLink, window.location.origin);
+                    if (url.origin === window.location.origin) window.location.assign(url.href);
+                  } catch {
+                    return;
+                  }
+                },
+              },
+            }
+          : {}),
+      });
+    };
+
+    const attachForegroundListener = async () => {
+      if (Notification.permission !== "granted") return;
+      try {
+        const stop = await listenForForegroundPush(showMessage);
+        if (active) unsubscribe = stop;
+        else stop();
+      } catch (error) {
+        console.warn("[notifications] Foreground listener could not start", error);
+      }
+    };
+
+    const refreshToken = () => {
+      if (document.visibilityState !== "visible" || Notification.permission !== "granted") return;
+      void registerFirebaseDevice(user.id).catch((error) => {
+        console.warn("[notifications] FCM token refresh failed", error);
+      });
+    };
+
+    void attachForegroundListener();
+    document.addEventListener("visibilitychange", refreshToken);
+    return () => {
+      active = false;
+      unsubscribe();
+      document.removeEventListener("visibilitychange", refreshToken);
+    };
+  }, [user]);
+
+  return null;
 }

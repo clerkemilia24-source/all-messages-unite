@@ -84,29 +84,108 @@ const postInput = z.object({
 
 export const getSocialFeed = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ scope: z.enum(["public", "following"]) }).parse(input))
+  .inputValidator((input) =>
+    z
+      .object({
+        scope: z.enum(["for-you", "following", "friends", "trending"]),
+        page: z.number().int().min(0).max(500),
+      })
+      .parse(input),
+  )
   .handler(async ({ data, context }) => {
+    const pageSize = 20;
     const { data: followRows, error: followsError } = await context.supabase
       .from("social_follows")
       .select("following_id")
       .eq("follower_id", context.userId);
     if (followsError) throw new Error("Could not load followed accounts.");
+    const followedIds = new Set((followRows ?? []).map((row) => row.following_id));
+
+    let friendIds: string[] = [];
+    if (data.scope === "friends") {
+      const { data: memberships, error: membershipsError } = await context.supabase
+        .from("conversation_members")
+        .select("conversation_id")
+        .eq("user_id", context.userId)
+        .limit(500);
+      if (membershipsError) throw new Error("Could not load your contacts.");
+      const conversationIds = Array.from(
+        new Set((memberships ?? []).map((row) => row.conversation_id)),
+      );
+      if (!conversationIds.length) return [];
+      const { data: members, error: membersError } = await context.supabase
+        .from("conversation_members")
+        .select("user_id")
+        .in("conversation_id", conversationIds)
+        .limit(1000);
+      if (membersError) throw new Error("Could not load your contacts.");
+      friendIds = Array.from(new Set((members ?? []).map((member) => member.user_id))).filter(
+        (id) => id !== context.userId,
+      );
+      if (!friendIds.length) return [];
+    }
 
     let query = context.supabase
       .from("social_posts")
       .select("id, author_id, body, media_path, media_type, visibility, repost_of, created_at")
       .order("created_at", { ascending: false })
-      .limit(50);
-    if (data.scope === "public") {
+      .limit(200);
+    if (data.scope === "for-you" || data.scope === "trending") {
       query = query.eq("visibility", "public");
-    } else {
+      if (data.scope === "trending") {
+        const recentAfter = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        query = query.gte("created_at", recentAfter);
+      }
+    } else if (data.scope === "following") {
       query = query
         .in("visibility", ["public", "followers"])
         .in("author_id", [context.userId, ...(followRows ?? []).map((row) => row.following_id)]);
+      query = query.range(data.page * pageSize, data.page * pageSize + pageSize - 1);
+    } else {
+      query = query
+        .in("visibility", ["public", "followers"])
+        .in("author_id", friendIds)
+        .range(data.page * pageSize, data.page * pageSize + pageSize - 1);
     }
-    const { data: posts, error } = await query;
+    const { data: candidates, error } = await query;
     if (error) throw new Error("Could not load the feed.");
-    if (!posts?.length) return [];
+    if (!candidates?.length) return [];
+
+    let posts = candidates;
+    let viewCountMap = new Map<string, number>();
+    if (data.scope === "for-you" || data.scope === "trending") {
+      const candidateIds = candidates.map((post) => post.id);
+      const [{ data: candidateLikes, error: likesError }, { data: counts, error: countsError }] =
+        await Promise.all([
+          context.supabase.from("social_post_likes").select("post_id").in("post_id", candidateIds),
+          context.supabase.rpc("get_social_post_view_counts", { _post_ids: candidateIds }),
+        ]);
+      if (likesError || countsError) throw new Error("Could not rank feed recommendations.");
+      viewCountMap = new Map((counts ?? []).map((row) => [row.post_id, Number(row.view_count)]));
+      const likeCounts = new Map<string, number>();
+      for (const like of candidateLikes ?? []) {
+        likeCounts.set(like.post_id, (likeCounts.get(like.post_id) ?? 0) + 1);
+      }
+      posts = [...candidates]
+        .sort((left, right) => {
+          const score = (post: (typeof candidates)[number]) => {
+            const ageHours = Math.max(
+              0,
+              (Date.now() - new Date(post.created_at).getTime()) / 3_600_000,
+            );
+            const views = viewCountMap.get(post.id) ?? 0;
+            const likes = likeCounts.get(post.id) ?? 0;
+            if (data.scope === "trending") {
+              return (views * 2 + likes * 3 + 1) / Math.pow(ageHours + 1, 0.45);
+            }
+            const relationshipBoost = followedIds.has(post.author_id) ? 8 : 0;
+            return (views + likes * 2 + relationshipBoost + 1) / Math.pow(ageHours + 6, 0.6);
+          };
+          return score(right) - score(left);
+        })
+        .slice(data.page * pageSize, data.page * pageSize + pageSize);
+    }
+    if (!posts.length) return [];
 
     const postIds = posts.map((post) => post.id);
     const authorIds = Array.from(new Set(posts.map((post) => post.author_id)));
@@ -130,6 +209,16 @@ export const getSocialFeed = createServerFn({ method: "GET" })
             .in("id", repostIds)
         : Promise.resolve({ data: [] }),
     ]);
+
+    if (!viewCountMap.size) {
+      const viewsResult = await context.supabase.rpc("get_social_post_view_counts", {
+        _post_ids: postIds,
+      });
+      if (viewsResult.error) throw new Error("Could not load post view counts.");
+      viewCountMap = new Map(
+        (viewsResult.data ?? []).map((row) => [row.post_id, Number(row.view_count)]),
+      );
+    }
 
     const originalPosts = originals.data ?? [];
     const allProfiles = new Set([
@@ -172,7 +261,6 @@ export const getSocialFeed = createServerFn({ method: "GET" })
     for (const like of likes ?? []) {
       likeGroups.set(like.post_id, [...(likeGroups.get(like.post_id) ?? []), like.user_id]);
     }
-    const followedIds = new Set((followRows ?? []).map((follow) => follow.following_id));
     const originalMap = new Map(originalPosts.map((post) => [post.id, post]));
 
     return posts.map((post) => {
@@ -182,6 +270,7 @@ export const getSocialFeed = createServerFn({ method: "GET" })
         ...post,
         author: profileMap.get(post.author_id) ?? null,
         mediaUrl: post.media_path ? (signedUrls.get(post.media_path) ?? null) : null,
+        viewCount: viewCountMap.get(post.id) ?? 0,
         likeCount: postLikes.length,
         likedByMe: postLikes.includes(context.userId),
         followingAuthor: followedIds.has(post.author_id),
@@ -269,6 +358,17 @@ export const publishSocialPost = createServerFn({ method: "POST" })
       }
       throw error;
     }
+  });
+
+export const recordSocialPostView = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ postId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: recorded, error } = await context.supabase.rpc("record_social_post_view", {
+      _post_id: data.postId,
+    });
+    if (error) throw new Error("Could not record this post view.");
+    return { recorded };
   });
 
 export const addSocialComment = createServerFn({ method: "POST" })

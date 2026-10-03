@@ -78,6 +78,90 @@
       "when": 1790910736049,
       "tag": "0010_social_post_views_and_saves",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791000000000,
+      "tag": "0011_status_audience_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791010000000,
+      "tag": "0012_shop_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791020000000,
+      "tag": "0013_status_interaction_limits",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791030000000,
+      "tag": "0014_live_streaming",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1791040000000,
+      "tag": "0015_fcm_device_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791050000000,
+      "tag": "0016_wallet_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791060000000,
+      "tag": "0017_native_coin_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791070000000,
+      "tag": "0018_shop_orders",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791080000000,
+      "tag": "0019_wallet_shop_settlement",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791090000000,
+      "tag": "0020_payment_rail_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791100000000,
+      "tag": "0021_wallet_payment_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791110000000,
+      "tag": "0022_wallet_request_realtime",
+      "breakpoints": true
     }
   ]
 }

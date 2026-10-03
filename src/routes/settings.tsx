@@ -9,6 +9,11 @@ import { BottomNav } from "@/components/BottomNav";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  getMissingFirebaseConfiguration,
+  registerFirebaseDevice,
+  unregisterFirebaseDevice,
+} from "@/lib/push-notifications";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -99,6 +104,11 @@ function SettingsPage() {
   const navigate = useNavigate();
   const [values, setValues] = useState<Record<PrivacyKey, boolean> | null>(null);
   const [busy, setBusy] = useState<PrivacyKey | null>(null);
+  const [pushState, setPushState] = useState<
+    "loading" | "disabled" | "registered" | "blocked" | "unsupported" | "error"
+  >(user ? "loading" : "disabled");
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) void navigate({ to: "/auth" });
@@ -119,6 +129,44 @@ function SettingsPage() {
         status_visible: data?.status_visible ?? true,
       });
     })();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    const missing = getMissingFirebaseConfiguration();
+    if (missing.length) {
+      setPushState("error");
+      setPushError(`Missing Firebase web config: ${missing.join(", ")}`);
+      return;
+    }
+    if (!("Notification" in window)) {
+      setPushState("unsupported");
+      return;
+    }
+    if (Notification.permission === "denied") {
+      setPushState("blocked");
+      return;
+    }
+    if (Notification.permission !== "granted") {
+      setPushState("disabled");
+      return;
+    }
+    void registerFirebaseDevice(user.id)
+      .then(() => {
+        if (active) {
+          setPushState("registered");
+          setPushError(null);
+        }
+      })
+      .catch((error) => {
+        if (!active) return;
+        setPushState("error");
+        setPushError(error instanceof Error ? error.message : "Push registration failed.");
+      });
+    return () => {
+      active = false;
+    };
   }, [user]);
 
   const toggle = async (key: PrivacyKey, next: boolean) => {
@@ -142,6 +190,30 @@ function SettingsPage() {
       return;
     }
     await refreshProfile();
+  };
+
+  const togglePush = async () => {
+    if (!user) return;
+    setPushBusy(true);
+    setPushError(null);
+    try {
+      if (pushState === "registered") {
+        await unregisterFirebaseDevice(user.id);
+        setPushState("disabled");
+        toast.success("This device registration was removed");
+      } else {
+        await registerFirebaseDevice(user.id);
+        setPushState("registered");
+        toast.success("This device is registered for push");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Push settings could not be changed.";
+      setPushError(message);
+      setPushState("error");
+      toast.error(message);
+    } finally {
+      setPushBusy(false);
+    }
   };
 
   return (
@@ -184,6 +256,16 @@ function SettingsPage() {
           <div className="h-px bg-border" />
           <Link to="/calls" className="flex items-center px-4 py-3 text-[16px] text-foreground">
             <span className="flex-1">Call history</span>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </Link>
+          <div className="h-px bg-border" />
+          <Link to="/wallet" className="flex items-center px-4 py-3 text-[16px] text-foreground">
+            <span className="flex-1">Wallet</span>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </Link>
+          <div className="h-px bg-border" />
+          <Link to="/coin" className="flex items-center px-4 py-3 text-[16px] text-foreground">
+            <span className="flex-1">Native Coin</span>
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
           </Link>
           <p className="px-4 pb-3 text-[13px] text-muted-foreground">{user?.email}</p>
@@ -231,17 +313,32 @@ function SettingsPage() {
 
         <SettingsSection
           title="Notifications"
-          description="Control how new messages and calls reach you."
+          description="Register this device for Firebase push messages."
         >
           <SettingsRow
-            label="Message notifications"
-            hint="Notifications follow your browser settings"
-          />
-          <div className="h-px bg-border" />
-          <SettingsRow
-            label="Call notifications"
-            hint="Incoming calls remain enabled for active chats"
-          />
+            label="This device"
+            hint={
+              pushError ??
+              (pushState === "registered"
+                ? "Device token registered. App event delivery is not configured yet."
+                : "Permission and Firebase setup are required.")
+            }
+          >
+            <Button
+              variant={pushState === "registered" ? "secondary" : "default"}
+              size="sm"
+              disabled={
+                pushBusy ||
+                pushState === "loading" ||
+                pushState === "unsupported" ||
+                (pushState !== "registered" && getMissingFirebaseConfiguration().length > 0)
+              }
+              onClick={() => void togglePush()}
+            >
+              {pushBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {pushState === "registered" ? "Remove device" : "Register device"}
+            </Button>
+          </SettingsRow>
         </SettingsSection>
 
         <SettingsSection

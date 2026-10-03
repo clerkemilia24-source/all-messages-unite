@@ -1,0 +1,1 @@
+alter publication supabase_realtime add table public.wallet_payment_requests;

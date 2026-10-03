@@ -54,6 +54,9 @@ type StatusPost = {
 };
 
 type Viewer = { viewer_id: string; viewed_at: string };
+type StatusReaction = { user_id: string; emoji: string };
+type StatusReply = { id: string; sender_id: string; body: string; created_at: string };
+const STATUS_REACTIONS = ["❤️", "😂", "😮", "😢", "👏"];
 
 const BACKGROUNDS = ["#0b84ff", "#34c759", "#ff375f", "#ff9500", "#5e5ce6"];
 const GRADIENTS = [
@@ -326,11 +329,68 @@ function Composer({
   const [gradient, setGradient] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const [audienceMode, setAudienceMode] = useState<"contacts" | "except" | "only">("contacts");
+  const [audienceIds, setAudienceIds] = useState<string[]>([]);
+  const [audienceContacts, setAudienceContacts] = useState<
+    { id: string; display_name: string }[] | null
+  >(null);
+  const [audienceContactsError, setAudienceContactsError] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (mode === "media") fileInput.current?.click();
   }, [mode]);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const { data: memberships, error: membershipsError } = await supabase
+        .from("conversation_members")
+        .select("conversation_id")
+        .eq("user_id", userId);
+      if (membershipsError) throw membershipsError;
+      const conversationIds = (memberships ?? []).map((membership) => membership.conversation_id);
+      if (!conversationIds.length) {
+        if (active) setAudienceContacts([]);
+        return;
+      }
+
+      const { data: members, error: membersError } = await supabase
+        .from("conversation_members")
+        .select("user_id")
+        .in("conversation_id", conversationIds);
+      if (membersError) throw membersError;
+      const contactIds = Array.from(new Set((members ?? []).map((member) => member.user_id))).filter(
+        (id) => id !== userId,
+      );
+      if (!contactIds.length) {
+        if (active) setAudienceContacts([]);
+        return;
+      }
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, display_name")
+        .in("id", contactIds)
+        .order("display_name");
+      if (profilesError) throw profilesError;
+      if (active) {
+        setAudienceContacts(
+          (profiles ?? []).map((contact) => ({
+            id: contact.id,
+            display_name: contact.display_name ?? "Contact",
+          })),
+        );
+      }
+    })().catch(() => {
+      if (!active) return;
+      setAudienceContactsError(true);
+      setAudienceContacts([]);
+    });
+    return () => {
+      active = false;
+    };
+  }, [userId]);
 
   async function publish() {
     setBusy(true);
@@ -342,6 +402,8 @@ function Composer({
           kind: "text",
           body: text.trim(),
           background: gradient ?? background,
+          audience_mode: audienceMode,
+          audience_ids: audienceIds,
         });
         if (error) throw error;
       } else {
@@ -352,6 +414,8 @@ function Composer({
           kind: file.type.startsWith("video/") ? "video" : "photo",
           media_url: path,
           media_type: file.type,
+          audience_mode: audienceMode,
+          audience_ids: audienceIds,
         });
         if (error) throw error;
       }
@@ -423,6 +487,53 @@ function Composer({
         </div>
       )}
 
+      <div className="mb-4 space-y-2">
+        <label className="block text-sm font-medium" htmlFor="status-audience">
+          Status audience
+        </label>
+        <select
+          id="status-audience"
+          value={audienceMode}
+          onChange={(event) => setAudienceMode(event.target.value as typeof audienceMode)}
+          disabled={busy}
+          className="w-full rounded-lg bg-background/15 px-3 py-2 text-sm text-background"
+        >
+          <option value="contacts">All my contacts</option>
+          <option value="except">My contacts, except...</option>
+          <option value="only">Only share with...</option>
+        </select>
+        {audienceMode !== "contacts" && (
+          <div className="max-h-32 overflow-y-auto rounded-lg bg-background/10">
+            {audienceContacts === null ? (
+              <div className="flex justify-center py-3">
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </div>
+            ) : audienceContactsError ? (
+              <p className="px-3 py-2 text-sm">Contacts could not be loaded. Try again later.</p>
+            ) : audienceContacts.length === 0 ? (
+              <p className="px-3 py-2 text-sm">No contacts to select.</p>
+            ) : (
+              audienceContacts.map((contact) => (
+                <label key={contact.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={audienceIds.includes(contact.id)}
+                    onChange={(event) =>
+                      setAudienceIds((current) =>
+                        event.target.checked
+                          ? [...new Set([...current, contact.id])]
+                          : current.filter((id) => id !== contact.id),
+                      )
+                    }
+                    disabled={busy}
+                  />
+                  <span>{contact.display_name}</span>
+                </label>
+              ))
+            )}
+          </div>
+        )}
+      </div>
 
       <input
         ref={fileInput}
@@ -434,7 +545,12 @@ function Composer({
 
       <Button
         onClick={() => void publish()}
-        disabled={busy || (mode === "text" ? !text.trim() : !file)}
+        disabled={
+          busy ||
+          (mode === "text" ? !text.trim() : !file) ||
+          (audienceMode !== "contacts" && (audienceContacts === null || audienceContactsError)) ||
+          (audienceMode === "only" && audienceIds.length === 0)
+        }
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Share status"}
       </Button>
@@ -466,9 +582,86 @@ function StatusViewer({
   const [showViewers, setShowViewers] = useState(false);
   const [viewerProfiles, setViewerProfiles] = useState<Map<string, ProfileLite>>(new Map());
   const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [reactions, setReactions] = useState<StatusReaction[]>([]);
+  const [replies, setReplies] = useState<StatusReply[]>([]);
+  const [replyBody, setReplyBody] = useState("");
+  const [replyBusy, setReplyBusy] = useState(false);
+  const [interactionError, setInteractionError] = useState(false);
+  const [interactionRevision, setInteractionRevision] = useState(0);
   const post = posts[Math.min(index, posts.length - 1)]!;
   const mediaUrl = useRemoteUrl("status", post.kind === "text" ? null : post.media_url);
   const nextMediaUrl = useRemoteUrl("status", posts[index + 1]?.media_url ?? null);
+
+  useEffect(() => {
+    let active = true;
+    setInteractionError(false);
+    setReactions([]);
+    setReplies([]);
+    void (async () => {
+      const { data: reactionRows, error: reactionError } = await supabase
+        .from("status_reactions")
+        .select("user_id, emoji")
+        .eq("status_id", post.id);
+      if (reactionError) throw reactionError;
+      if (active) setReactions(reactionRows ?? []);
+
+      if (isMine) {
+        const { data: replyRows, error: replyError } = await supabase
+          .from("status_replies")
+          .select("id, sender_id, body, created_at")
+          .eq("status_id", post.id)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (replyError) throw replyError;
+        if (active) setReplies(replyRows ?? []);
+      }
+    })().catch(() => {
+      if (active) setInteractionError(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [post.id, isMine, interactionRevision]);
+
+  async function toggleStatusReaction(emoji: string) {
+    const ownReaction = reactions.find((reaction) => reaction.user_id === viewerId);
+    const removing = ownReaction?.emoji === emoji;
+    const result = removing
+      ? await supabase
+          .from("status_reactions")
+          .delete()
+          .eq("status_id", post.id)
+          .eq("user_id", viewerId)
+      : await supabase.from("status_reactions").upsert(
+          { status_id: post.id, user_id: viewerId, emoji },
+          { onConflict: "status_id,user_id" },
+        );
+    if (result.error) {
+      toast.error("Your reaction could not be saved.");
+      return;
+    }
+    setReactions((current) => [
+      ...current.filter((reaction) => reaction.user_id !== viewerId),
+      ...(removing ? [] : [{ user_id: viewerId, emoji }]),
+    ]);
+  }
+
+  async function sendStatusReply(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const body = replyBody.trim();
+    if (!body || isMine) return;
+    setReplyBusy(true);
+    const { error } = await supabase
+      .from("status_replies")
+      .insert({ status_id: post.id, sender_id: viewerId, body });
+    setReplyBusy(false);
+    if (error) {
+      toast.error("Your reply could not be sent. Try again.");
+      return;
+    }
+    setReplyBody("");
+    toast.success("Reply sent");
+  }
 
   // Record the view (own statuses are never recorded as views).
   useEffect(() => {
@@ -635,6 +828,72 @@ function StatusViewer({
               {viewers?.length === 0 && <li className="text-sm opacity-70">No views yet</li>}
             </ul>
           )}
+          {replies.length > 0 && (
+            <ul className="mt-3 max-h-32 space-y-2 overflow-y-auto border-t border-white/20 pt-3">
+              {replies.map((reply) => (
+                <li key={reply.id} className="flex items-start justify-between gap-3 text-sm">
+                  <p className="min-w-0 flex-1 whitespace-pre-wrap break-words">{reply.body}</p>
+                  <span className="shrink-0 text-xs opacity-70">
+                    {formatListTime(reply.created_at)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {!isMine && (
+        <div className="space-y-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          {interactionError ? (
+            <button
+              type="button"
+              onClick={() => setInteractionRevision((revision) => revision + 1)}
+              className="text-sm underline"
+            >
+              Reactions could not load. Retry
+            </button>
+          ) : (
+            <div className="flex items-center justify-center gap-2">
+              {STATUS_REACTIONS.map((emoji) => {
+                const count = reactions.filter((reaction) => reaction.emoji === emoji).length;
+                const selected = reactions.some(
+                  (reaction) => reaction.user_id === viewerId && reaction.emoji === emoji,
+                );
+                return (
+                  <button
+                    key={emoji}
+                    type="button"
+                    aria-label={`React with ${emoji}${count ? `, ${count} reactions` : ""}`}
+                    aria-pressed={selected}
+                    onClick={() => void toggleStatusReaction(emoji)}
+                    className={`min-w-12 rounded-full px-3 py-2 ${selected ? "bg-white/30" : "bg-white/10"}`}
+                  >
+                    {emoji} {count > 0 && <span className="text-xs">{count}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <form onSubmit={(event) => void sendStatusReply(event)} className="flex gap-2">
+            <input
+              value={replyBody}
+              onChange={(event) => setReplyBody(event.target.value)}
+              maxLength={1000}
+              placeholder="Reply to status"
+              aria-label="Reply to status"
+              className="min-w-0 flex-1 rounded-full bg-white/15 px-4 py-2 text-sm text-white placeholder:text-white/60 outline-none"
+            />
+            <Button
+              type="submit"
+              size="icon"
+              variant="secondary"
+              aria-label="Send status reply"
+              disabled={replyBusy || !replyBody.trim()}
+            >
+              {replyBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </Button>
+          </form>
         </div>
       )}
     </div>

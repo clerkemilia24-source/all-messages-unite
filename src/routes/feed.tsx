@@ -10,6 +10,7 @@ import {
   Loader2,
   MessageCircle,
   Plus,
+  Radio,
   Repeat2,
   Send,
   Share2,
@@ -47,7 +48,7 @@ export const Route = createFileRoute("/feed")({
   component: FeedPage,
 });
 
-type FeedScope = "public" | "following";
+type FeedScope = "for-you" | "following" | "friends" | "trending";
 type FeedPost = Awaited<ReturnType<typeof getSocialFeed>>[number];
 type ReportReason = "spam" | "harassment" | "violence" | "sexual" | "other";
 const SUPPORTED_MEDIA_TYPES = [
@@ -254,7 +255,7 @@ function FeedPostScreen({
 function FeedPage() {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
-  const [scope, setScope] = useState<FeedScope>("public");
+  const [scope, setScope] = useState<FeedScope>("for-you");
   const [posts, setPosts] = useState<FeedPost[] | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -595,18 +596,35 @@ function FeedPage() {
           <Globe2 className="h-5 w-5 shrink-0 text-white" aria-hidden="true" />
           <h1 className="text-lg font-bold">Ripple</h1>
         </div>
-        <div className="flex items-center gap-1 rounded-full bg-black/30 p-1 backdrop-blur-md">
-          {(["public", "following"] as const).map((item) => (
-            <button
-              key={item}
-              onClick={() => setScope(item)}
-              aria-pressed={scope === item}
-              className={`min-h-9 rounded-full px-4 text-sm font-semibold capitalize ${scope === item ? "bg-white text-black" : "text-white/80"}`}
-            >
-              {item}
-            </button>
-          ))}
+        <div className="min-w-0 flex-1 overflow-x-auto rounded-full bg-black/30 p-1 backdrop-blur-md">
+          <div className="flex w-max items-center gap-1">
+            {(
+              [
+                { value: "for-you", label: "For You" },
+                { value: "following", label: "Following" },
+                { value: "friends", label: "Friends" },
+                { value: "trending", label: "Trending" },
+              ] as const
+            ).map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setScope(value)}
+                aria-pressed={scope === value}
+                className={`min-h-9 whitespace-nowrap rounded-full px-3 text-sm font-semibold ${scope === value ? "bg-white text-black" : "text-white/80"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={() => void navigate({ to: "/live" })}
+          aria-label="Open LIVE"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-rose-600"
+        >
+          <Radio className="h-5 w-5" />
+        </button>
         <button
           type="button"
           onClick={() => setComposeOpen(true)}
