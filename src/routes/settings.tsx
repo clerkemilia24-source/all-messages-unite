@@ -1,6 +1,28 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { ChevronRight, LogOut, Loader2, MoreHorizontal } from "lucide-react";
+import {
+  Accessibility,
+  Archive,
+  ChevronRight,
+  CircleDashed,
+  CircleHelp,
+  Coins,
+  Eye,
+  Gauge,
+  Image,
+  Info,
+  LogOut,
+  Loader2,
+  MessageCircle,
+  MoreHorizontal,
+  PhoneCall,
+  ShieldCheck,
+  Smartphone,
+  Type,
+  UsersRound,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -8,7 +30,12 @@ import { ChatAvatar } from "@/components/RemoteImage";
 import { BottomNav } from "@/components/BottomNav";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   getMissingFirebaseConfiguration,
   registerFirebaseDevice,
@@ -36,26 +63,62 @@ export const Route = createFileRoute("/settings")({
   component: SettingsPage,
 });
 
+type SettingsHue = "social" | "money" | "system" | "safety";
 type PrivacyKey = "read_receipts" | "last_seen_visible" | "photo_visible" | "status_visible";
 
-const TOGGLES: { key: PrivacyKey; label: string; hint: string }[] = [
+const TILE_HUES: Record<SettingsHue, string> = {
+  social: "from-cyan-400 to-sky-600 text-white",
+  money: "from-amber-300 to-amber-500 text-slate-950",
+  system: "from-indigo-400 to-indigo-700 text-white",
+  safety: "from-rose-400 to-rose-600 text-white",
+};
+
+const TOGGLES: {
+  key: PrivacyKey;
+  label: string;
+  hint: string;
+  Icon: LucideIcon;
+  hue: SettingsHue;
+}[] = [
   {
     key: "read_receipts",
     label: "Read receipts",
     hint: "Let others see when you've read their messages.",
+    Icon: ShieldCheck,
+    hue: "safety",
   },
   {
     key: "last_seen_visible",
     label: "Last seen & online",
     hint: "Show when you were last active.",
+    Icon: Eye,
+    hue: "safety",
   },
   {
     key: "photo_visible",
     label: "Profile photo",
     hint: "Show your photo to people you chat with.",
+    Icon: Image,
+    hue: "safety",
   },
-  { key: "status_visible", label: "Status updates", hint: "Let your chats see your status posts." },
+  {
+    key: "status_visible",
+    label: "Status updates",
+    hint: "Let your chats see your status posts.",
+    Icon: CircleDashed,
+    hue: "social",
+  },
 ];
+
+function SettingsIcon({ Icon, hue }: { Icon: LucideIcon; hue: SettingsHue }) {
+  return (
+    <span
+      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${TILE_HUES[hue]}`}
+    >
+      <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
+    </span>
+  );
+}
 
 function SettingsSection({
   id,
@@ -71,12 +134,10 @@ function SettingsSection({
   return (
     <section id={id}>
       <div className="px-2 pb-2">
-        <p className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {title}
-        </p>
-        <p className="mt-0.5 text-[13px] text-muted-foreground">{description}</p>
+        <p className="text-[11px] font-bold uppercase text-ink-tertiary">{title}</p>
+        <p className="mt-0.5 text-[12px] text-ink-tertiary">{description}</p>
       </div>
-      <div className="overflow-hidden rounded-[24px] border border-border bg-card">{children}</div>
+      <div className="overflow-hidden rounded-[20px] border border-border bg-card">{children}</div>
     </section>
   );
 }
@@ -84,17 +145,22 @@ function SettingsSection({
 function SettingsRow({
   label,
   hint,
+  Icon,
+  hue,
   children,
 }: {
   label: string;
   hint?: string;
+  Icon: LucideIcon;
+  hue: SettingsHue;
   children?: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-3">
+    <div className="flex min-h-16 items-center gap-3 px-4 py-3">
+      <SettingsIcon Icon={Icon} hue={hue} />
       <span className="min-w-0 flex-1">
-        <span className="block text-[16px] text-foreground">{label}</span>
-        {hint && <span className="block text-[13px] text-muted-foreground">{hint}</span>}
+        <span className="block text-[15px] text-foreground">{label}</span>
+        {hint && <span className="block text-[12px] text-ink-tertiary">{hint}</span>}
       </span>
       {children}
     </div>
@@ -209,7 +275,8 @@ function SettingsPage() {
         toast.success("This device is registered for push");
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Push settings could not be changed.";
+      const message =
+        error instanceof Error ? error.message : "Push settings could not be changed.";
       setPushError(message);
       setPushState("error");
       toast.error(message);
@@ -222,21 +289,35 @@ function SettingsPage() {
     <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col bg-background">
       <header className="liquid-panel sticky top-0 z-10 flex items-center justify-between px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <h1 className="text-[2rem] font-bold text-foreground">Settings</h1>
-        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label="Settings options"><MoreHorizontal /></Button></DropdownMenuTrigger>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Settings options">
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => void navigate({ to: "/new" })}>New Group</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void navigate({ to: "/new" })}>
+              New Group
+            </DropdownMenuItem>
             <DropdownMenuItem disabled>New Broadcast</DropdownMenuItem>
             <DropdownMenuItem disabled>Linked Devices</DropdownMenuItem>
             <DropdownMenuItem disabled>Starred</DropdownMenuItem>
             <DropdownMenuItem disabled>Read All</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => document.getElementById("settings-sections")?.scrollIntoView({ behavior: "smooth" })}>Settings</DropdownMenuItem>
-          </DropdownMenuContent></DropdownMenu>
+            <DropdownMenuItem
+              onSelect={() =>
+                document.getElementById("settings-sections")?.scrollIntoView({ behavior: "smooth" })
+              }
+            >
+              Settings
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </header>
 
-      <div id="settings-sections" className="flex-1 space-y-6 px-4 py-4">
+      <div id="settings-sections" className="flex-1 space-y-3 px-4 py-4">
         <Link
           to="/profile"
-          className="flex items-center gap-3 rounded-[24px] border border-border bg-card px-4 py-3 transition active:scale-[0.99]"
+          className="flex items-center gap-3 rounded-[20px] border border-border bg-card px-4 py-3 transition active:scale-[0.99]"
         >
           <ChatAvatar name={profile?.display_name ?? "Me"} path={profile?.avatar_url} size={56} />
           <div className="min-w-0 flex-1">
@@ -251,26 +332,50 @@ function SettingsPage() {
         </Link>
 
         <SettingsSection title="Account" description="Manage your profile and account activity.">
-          <Link to="/contacts" className="flex items-center px-4 py-3 text-[16px] text-foreground">
-            <span className="flex-1">Contacts</span>
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          <Link to="/contacts" className="block text-foreground">
+            <SettingsRow
+              label="Contacts"
+              hint="Find people to chat with"
+              Icon={UsersRound}
+              hue="social"
+            >
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </SettingsRow>
           </Link>
           <div className="h-px bg-border" />
-          <Link to="/calls" className="flex items-center px-4 py-3 text-[16px] text-foreground">
-            <span className="flex-1">Call history</span>
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          <Link to="/calls" className="block text-foreground">
+            <SettingsRow
+              label="Call history"
+              hint="Recent voice and video calls"
+              Icon={PhoneCall}
+              hue="social"
+            >
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </SettingsRow>
           </Link>
           <div className="h-px bg-border" />
-          <Link to="/wallet" className="flex items-center px-4 py-3 text-[16px] text-foreground">
-            <span className="flex-1">Wallet</span>
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          <Link to="/wallet" className="block text-foreground">
+            <SettingsRow
+              label="Wallet"
+              hint="Balance and payment activity"
+              Icon={Wallet}
+              hue="money"
+            >
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </SettingsRow>
           </Link>
           <div className="h-px bg-border" />
-          <Link to="/coin" className="flex items-center px-4 py-3 text-[16px] text-foreground">
-            <span className="flex-1">Native Coin</span>
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          <Link to="/coin" className="block text-foreground">
+            <SettingsRow
+              label="Native Coin"
+              hint="Coin balance and transfers"
+              Icon={Coins}
+              hue="money"
+            >
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </SettingsRow>
           </Link>
-          <p className="px-4 pb-3 text-[13px] text-muted-foreground">{user?.email}</p>
+          <p className="px-4 pb-3 pl-[4.5rem] text-[12px] text-ink-tertiary">{user?.email}</p>
         </SettingsSection>
 
         <SettingsSection
@@ -284,13 +389,14 @@ function SettingsPage() {
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              TOGGLES.map(({ key, label, hint }, i) => (
+              TOGGLES.map(({ key, label, hint, Icon, hue }, i) => (
                 <div key={key}>
                   {i > 0 && <div className="h-px bg-border" />}
-                  <label className="flex items-center gap-3 px-4 py-3">
+                  <label className="flex min-h-16 items-center gap-3 px-4 py-3">
+                    <SettingsIcon Icon={Icon} hue={hue} />
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[16px] text-foreground">{label}</span>
-                      <span className="block text-[13px] text-muted-foreground">{hint}</span>
+                      <span className="block text-[15px] text-foreground">{label}</span>
+                      <span className="block text-[12px] text-ink-tertiary">{hint}</span>
                     </span>
                     <Switch
                       checked={values[key]}
@@ -313,9 +419,16 @@ function SettingsPage() {
           <SettingsRow
             label="Message appearance"
             hint="Bubbles, media previews, and reply behavior"
+            Icon={MessageCircle}
+            hue="social"
           />
           <div className="h-px bg-border" />
-          <SettingsRow label="Archived chats" hint="Your archived conversations will appear here" />
+          <SettingsRow
+            label="Archived chats"
+            hint="Your archived conversations will appear here"
+            Icon={Archive}
+            hue="system"
+          />
         </SettingsSection>
 
         <SettingsSection
@@ -325,6 +438,8 @@ function SettingsPage() {
         >
           <SettingsRow
             label="This device"
+            Icon={Smartphone}
+            hue="system"
             hint={
               pushError ??
               (pushState === "registered"
@@ -353,20 +468,37 @@ function SettingsPage() {
           title="Storage & Data"
           description="Review media and data behavior for this device."
         >
-          <SettingsRow label="Media downloads" hint="Attachments open from secure storage links" />
+          <SettingsRow
+            label="Media downloads"
+            hint="Attachments open from secure storage links"
+            Icon={Image}
+            hue="system"
+          />
           <div className="h-px bg-border" />
-          <SettingsRow label="Data usage" hint="Large media is limited to 25 MB per upload" />
+          <SettingsRow
+            label="Data usage"
+            hint="Large media is limited to 25 MB per upload"
+            Icon={Gauge}
+            hue="system"
+          />
         </SettingsSection>
 
         <SettingsSection
           title="Accessibility"
           description="Make Ripple easier to use with your device preferences."
         >
-          <SettingsRow label="Motion" hint="Follows your browser's reduced-motion preference" />
+          <SettingsRow
+            label="Motion"
+            hint="Follows your browser's reduced-motion preference"
+            Icon={Accessibility}
+            hue="system"
+          />
           <div className="h-px bg-border" />
           <SettingsRow
             label="Text size"
             hint="Uses your browser and operating-system text settings"
+            Icon={Type}
+            hue="system"
           />
         </SettingsSection>
 
@@ -375,9 +507,19 @@ function SettingsPage() {
           title="Help"
           description="Find support and information about Ripple."
         >
-          <SettingsRow label="Help center" hint="Troubleshooting and account guidance" />
+          <SettingsRow
+            label="Help center"
+            hint="Troubleshooting and account guidance"
+            Icon={CircleHelp}
+            hue="system"
+          />
           <div className="h-px bg-border" />
-          <SettingsRow label="About Ripple" hint="Private messaging, status, and calling" />
+          <SettingsRow
+            label="About Ripple"
+            hint="Private messaging, status, and calling"
+            Icon={Info}
+            hue="system"
+          />
         </SettingsSection>
 
         <button
@@ -390,6 +532,7 @@ function SettingsPage() {
           <LogOut className="h-5 w-5" />
           Sign out
         </button>
+        <p className="pb-1 text-center text-[11px] text-ink-tertiary">BIGAD · Version 1.0.0</p>
       </div>
 
       <BottomNav />

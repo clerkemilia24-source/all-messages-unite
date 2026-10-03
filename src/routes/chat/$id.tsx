@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowUp,
   ChevronLeft,
+  Check,
+  CheckCheck,
   Paperclip,
   MoreHorizontal,
   X,
@@ -18,7 +20,6 @@ import {
   Smile,
   Copy,
   Forward,
-  CheckCheck,
   Play,
   RotateCcw,
   Phone,
@@ -291,6 +292,7 @@ function Conversation() {
   const bottom = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
+  const gifInput = useRef<HTMLInputElement>(null);
   const emojiInput = useRef<HTMLTextAreaElement>(null);
   const lastTyping = useRef(0);
 
@@ -734,70 +736,75 @@ function Conversation() {
     !group &&
     isOnline(other?.last_seen) &&
     now - new Date(other?.last_seen ?? 0).getTime() < 70_000;
-  const lastOutgoing = messages.filter((m) => m.sender_id === user?.id).at(-1)?.id;
   return (
-    <main className="mx-auto flex h-dvh w-full max-w-2xl flex-col bg-background text-foreground">
-      <header className="chat-app-bar liquid-chrome relative flex shrink-0 items-center justify-between px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <Button
-          asChild
-          variant="ghost"
-          size="icon"
-          className="h-11 w-11 rounded-full text-foreground hover:bg-primary/10"
-        >
-          <Link to="/" aria-label="Back to messages">
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
-        </Button>
-        <div className="flex min-w-0 flex-1 items-center justify-center gap-3">
-          <div className="relative shrink-0">
-            <ChatAvatar name={title} path={group ? null : other?.avatar_url} size={40} />
-            {online && (
-              <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-presence" />
-            )}
+    <main className="chat-screen mx-auto flex h-dvh w-full max-w-2xl flex-col bg-background text-foreground">
+      <header className="chat-app-bar relative z-10 shrink-0 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <div className="flex items-center gap-2">
+          <Button
+            asChild
+            variant="ghost"
+            size="icon"
+            className="liquid-chrome h-14 w-14 shrink-0 rounded-[28px] text-foreground hover:bg-primary/10"
+          >
+            <Link to="/" aria-label="Back to messages">
+              <ChevronLeft className="h-5 w-5" />
+            </Link>
+          </Button>
+          <div className="liquid-chrome flex h-14 min-w-0 flex-1 items-center gap-2 rounded-[28px] px-3">
+            <span className="relative shrink-0">
+              <ChatAvatar name={title} path={group ? null : other?.avatar_url} size={36} />
+              {online && (
+                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-card bg-presence" />
+              )}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex min-w-0 items-center gap-1">
+                <span className="truncate text-[14px] font-semibold text-foreground">{title}</span>
+                <span
+                  className="shrink-0 text-[14px] leading-none text-primary"
+                  role="img"
+                  aria-label="Verified"
+                >
+                  ★
+                </span>
+              </span>
+              <span className="block truncate text-[11px] text-muted-foreground">
+                {typing.length > 0
+                  ? "typing…"
+                  : group
+                    ? `${profiles.length} members`
+                    : online
+                      ? "Online"
+                      : "Offline"}
+              </span>
+            </span>
           </div>
-          <div className="min-w-0 flex-1 text-left">
-            <h1 className="truncate text-[15px] font-semibold tracking-[0.01em]">{title}</h1>
-            <p className="truncate text-[11px] text-muted-foreground">
-              {typing.length > 0
-                ? "typing…"
-                : group
-                  ? `${profiles.length} members`
-                  : online
-                    ? "Online"
-                    : "Offline"}
-            </p>
+          <div className="liquid-chrome flex h-14 shrink-0 items-center gap-0.5 rounded-[28px] px-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-11 w-11 rounded-full text-foreground hover:bg-primary/10"
+              aria-label="Start voice call"
+              onClick={() => void startCall(id, "voice", title)}
+            >
+              <Phone className="h-5 w-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-11 w-11 rounded-full text-foreground hover:bg-primary/10"
+              aria-label="Conversation options"
+            >
+              <MoreHorizontal className="h-5 w-5" />
+            </Button>
           </div>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-10 w-10 rounded-full text-foreground hover:bg-primary/10"
-          aria-label="Start voice call"
-          onClick={() => void startCall(id, "voice", title)}
-        >
-          <Phone className="h-5 w-5" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-10 w-10 rounded-full text-foreground hover:bg-primary/10"
-          aria-label="Start video call"
-          onClick={() => void startCall(id, "video", title)}
-        >
-          <Video className="h-5 w-5" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-11 w-11 rounded-full text-foreground hover:bg-primary/10"
-          aria-label="Conversation options"
-        >
-          <MoreHorizontal className="h-5 w-5" />
-        </Button>
       </header>
-      <section aria-label="Messages" className="flex-1 overflow-y-auto bg-background px-4 py-5">
+      <section
+        aria-label="Messages"
+        className="chat-wallpaper relative flex-1 overflow-y-auto px-4 py-5"
+      >
         {!ready ? (
           <Loader2 className="mx-auto animate-spin text-muted-foreground" />
         ) : error ? (
@@ -847,14 +854,8 @@ function Conversation() {
             const readBySomeone = otherMembers.some(
               (member) => new Date(member.last_read_at) >= new Date(m.created_at),
             );
-            const receipt =
-              own && m.id === lastOutgoing
-                ? readByAll
-                  ? "Read"
-                  : readBySomeone
-                    ? "Delivered"
-                    : "Sent"
-                : null;
+            let receipt: "Read" | "Delivered" | "Sent" | null = null;
+            if (own) receipt = readByAll ? "Read" : readBySomeone ? "Delivered" : "Sent";
             const showDate =
               i === 0 ||
               new Date(m.created_at).getTime() -
@@ -942,8 +943,13 @@ function Conversation() {
                       </time>
                       {receipt && (
                         <span className="inline-flex items-center gap-0.5">
-                          {receipt === "Read" && (
-                            <CheckCheck className="h-3 w-3" aria-hidden="true" />
+                          {receipt === "Sent" ? (
+                            <Check className="h-3 w-3" aria-hidden="true" />
+                          ) : (
+                            <CheckCheck
+                              className={`h-3 w-3 ${receipt === "Read" ? "text-primary" : ""}`}
+                              aria-hidden="true"
+                            />
                           )}
                           {receipt}
                         </span>
@@ -1093,6 +1099,17 @@ function Conversation() {
             role="dialog"
             aria-label="Emoji picker"
           >
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-10 shrink-0 rounded-xl px-3 text-sm font-bold"
+              onClick={() => {
+                gifInput.current?.click();
+                setStickersOpen(false);
+              }}
+            >
+              GIF
+            </Button>
             {["😀", "😂", "🥰", "❤️", "👍", "🎉", "😭", "🙏", "🔥", "👋", "✨", "💙"].map(
               (emoji) => (
                 <Button
@@ -1230,6 +1247,22 @@ function Conversation() {
               e.target.value = "";
             }}
           />
+          <input
+            type="file"
+            accept="image/gif"
+            ref={gifInput}
+            className="hidden"
+            aria-label="Choose a GIF"
+            onChange={(e) => {
+              const selectedGif = e.target.files?.[0];
+              if (selectedGif && selectedGif.size > 25 * 1024 * 1024) {
+                toast.error("Choose a GIF smaller than 25 MB.");
+              } else if (selectedGif) {
+                setFile(selectedGif);
+              }
+              e.target.value = "";
+            }}
+          />
           {attachmentSheet && (
             <div className="absolute bottom-full left-3 mb-2 flex gap-2 rounded-2xl border border-border bg-popover p-2 shadow-lg">
               <Button
@@ -1240,6 +1273,7 @@ function Conversation() {
                   setAttachmentSheet(false);
                 }}
               >
+                <Paperclip className="mr-2 h-4 w-4" />
                 Photo or file
               </Button>
               <Button
@@ -1250,6 +1284,7 @@ function Conversation() {
                   setAttachmentSheet(false);
                 }}
               >
+                <Camera className="mr-2 h-4 w-4" />
                 Camera
               </Button>
             </div>
@@ -1274,52 +1309,6 @@ function Conversation() {
             className="chat-composer-icon h-10 w-10 shrink-0 rounded-full hover:bg-primary/10"
           >
             <Smile className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Hold to record voice note"
-            onPointerDown={(event) => {
-              event.currentTarget.setPointerCapture(event.pointerId);
-              recordingGesture.current = {
-                pointerId: event.pointerId,
-                x: event.clientX,
-                y: event.clientY,
-              };
-              void startRecording("voice");
-            }}
-            onPointerMove={(event) => {
-              const gesture = recordingGesture.current;
-              if (!gesture || gesture.pointerId !== event.pointerId) return;
-              if (event.clientX < gesture.x - 80) {
-                recordingGesture.current = null;
-                void cancelRecording();
-              } else if (gesture.y - event.clientY > 80) {
-                setRecordingLocked(true);
-              }
-            }}
-            onPointerUp={() => {
-              recordingGesture.current = null;
-              if (!recordingLocked) void stopRecording();
-            }}
-            onPointerCancel={() => {
-              recordingGesture.current = null;
-              void cancelRecording();
-            }}
-            className="chat-composer-icon h-10 w-10 shrink-0 touch-none rounded-full hover:bg-primary/10"
-          >
-            <Mic className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Take a photo"
-            onClick={() => cameraInput.current?.click()}
-            className="chat-composer-icon h-10 w-10 shrink-0 rounded-full hover:bg-primary/10"
-          >
-            <Camera className="h-4 w-4" />
           </Button>
           <textarea
             ref={emojiInput}
@@ -1347,15 +1336,55 @@ function Conversation() {
               }
             }}
           />
-          <Button
-            type="submit"
-            size="icon"
-            className="prism-send h-10 w-10 shrink-0 rounded-full bg-primary text-white hover:bg-primary/90"
-            aria-label={editing ? "Save message" : "Send message"}
-            disabled={busy || !ready || !!error || (!body.trim() && !file)}
-          >
-            {busy ? <Loader2 className="animate-spin" /> : <ArrowUp className="h-4 w-4" />}
-          </Button>
+          {busy || body.trim() || file ? (
+            <Button
+              type="submit"
+              size="icon"
+              className="prism-send h-10 w-10 shrink-0 rounded-full bg-primary text-white hover:bg-primary/90"
+              aria-label={editing ? "Save message" : "Send message"}
+              disabled={busy || !ready || !!error}
+            >
+              {busy ? <Loader2 className="animate-spin" /> : <ArrowUp className="h-4 w-4" />}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Hold to record voice note"
+              disabled={busy || !ready || !!error}
+              onPointerDown={(event) => {
+                event.currentTarget.setPointerCapture(event.pointerId);
+                recordingGesture.current = {
+                  pointerId: event.pointerId,
+                  x: event.clientX,
+                  y: event.clientY,
+                };
+                void startRecording("voice");
+              }}
+              onPointerMove={(event) => {
+                const gesture = recordingGesture.current;
+                if (!gesture || gesture.pointerId !== event.pointerId) return;
+                if (event.clientX < gesture.x - 80) {
+                  recordingGesture.current = null;
+                  void cancelRecording();
+                } else if (gesture.y - event.clientY > 80) {
+                  setRecordingLocked(true);
+                }
+              }}
+              onPointerUp={() => {
+                recordingGesture.current = null;
+                if (!recordingLocked) void stopRecording();
+              }}
+              onPointerCancel={() => {
+                recordingGesture.current = null;
+                void cancelRecording();
+              }}
+              className="chat-composer-icon h-10 w-10 shrink-0 touch-none rounded-full hover:bg-primary/10"
+            >
+              <Mic className="h-4 w-4" />
+            </Button>
+          )}
         </form>
       </footer>
       <BottomNav />
