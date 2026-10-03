@@ -1,4 +1,5 @@
 # Messaging completion
+- [x] Move contacts into New Chat and replace the Contact tab with Wallet, retaining call history access.
 - [x] Put chat text on solid bubbles and keep Liquid Glass on the header, composer and tab chrome; support reduced transparency.
 - [x] Wire attachment choices, emoji insertion, voice recording/playback and camera capture in chat.
 - [ ] Verify chat screenshots, composer interactions, two-account online/offline transition, and voice-note roundtrip. Blocked: no authenticated account for requesting user in preview.
