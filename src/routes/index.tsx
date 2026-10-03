@@ -1,6 +1,16 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { Search, SquarePen, Loader2 } from "lucide-react";
+import {
+  Search,
+  SquarePen,
+  Loader2,
+  Settings,
+  Shield,
+  Smartphone,
+  Sun,
+  CircleHelp,
+  ChevronRight,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, isOnline } from "@/lib/auth";
 import { ChatAvatar } from "@/components/RemoteImage";
@@ -9,6 +19,14 @@ import { useServerFn } from '@tanstack/react-start';
 import { searchMessages } from '@/lib/search.functions';
 import { Button } from '@/components/ui/button';
 import { BottomNav } from '@/components/BottomNav';
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import {
   loadConversations,
   conversationTitle,
@@ -87,17 +105,70 @@ function Inbox() {
         <div className="flex items-end justify-between">
           <h1 className="text-[2rem] font-bold tracking-tight text-foreground">Messages</h1>
           <div className="flex items-center gap-2 pb-1.5">
-            <Link
-              to="/profile"
-              aria-label="Your profile"
-              className="rounded-full transition active:scale-95"
-            >
-              <ChatAvatar
-                name={profile?.display_name ?? "Me"}
-                path={profile?.avatar_url}
-                size={32}
-              />
-            </Link>
+            <Sheet>
+              <SheetTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Open account menu"
+                  className="rounded-full ring-2 ring-primary/30 transition active:scale-95"
+                >
+                  <ChatAvatar
+                    name={profile?.display_name ?? "Me"}
+                    path={profile?.avatar_url}
+                    size={36}
+                  />
+                </button>
+              </SheetTrigger>
+              <SheetContent
+                side="bottom"
+                className="liquid-crystal mx-auto w-full max-w-2xl rounded-t-[28px] border-x-0 border-b-0 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-7"
+              >
+                <SheetHeader className="mb-5 text-left">
+                  <SheetTitle className="text-xl">Your account</SheetTitle>
+                </SheetHeader>
+                <SheetClose asChild>
+                  <Link
+                    to="/profile"
+                    className="mb-4 flex items-center gap-3 rounded-2xl bg-foreground/5 p-3 text-foreground transition hover:bg-foreground/10"
+                  >
+                    <ChatAvatar
+                      name={profile?.display_name ?? "Me"}
+                      path={profile?.avatar_url}
+                      size={48}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold">
+                        {profile?.display_name ?? "Your profile"}
+                      </span>
+                      <span className="block truncate text-sm text-muted-foreground">
+                        {profile?.username ? `@${profile.username}` : "Edit profile"}
+                      </span>
+                    </span>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+                  </Link>
+                </SheetClose>
+                <nav aria-label="Account settings" className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: "Settings", hash: "", Icon: Settings },
+                    { label: "Privacy", hash: "privacy", Icon: Shield },
+                    { label: "Devices", hash: "devices", Icon: Smartphone },
+                    { label: "Appearance", hash: "appearance", Icon: Sun },
+                    { label: "Support", hash: "support", Icon: CircleHelp },
+                  ].map(({ label, hash, Icon }) => (
+                    <SheetClose asChild key={label}>
+                      <Link
+                        to="/settings"
+                        hash={hash}
+                        className="flex min-h-14 items-center gap-3 rounded-2xl border border-border/70 bg-foreground/5 px-3 text-sm font-medium text-foreground transition hover:bg-foreground/10"
+                      >
+                        <Icon className="h-5 w-5 text-primary" aria-hidden="true" />
+                        {label}
+                      </Link>
+                    </SheetClose>
+                  ))}
+                </nav>
+              </SheetContent>
+            </Sheet>
             <Link
               to="/new"
               aria-label="New message"

@@ -58,23 +58,25 @@ const TOGGLES: { key: PrivacyKey; label: string; hint: string }[] = [
 ];
 
 function SettingsSection({
+  id,
   title,
   description,
   children,
 }: {
+  id?: string;
   title: string;
   description: string;
   children: ReactNode;
 }) {
   return (
-    <section>
+    <section id={id}>
       <div className="px-2 pb-2">
         <p className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
           {title}
         </p>
         <p className="mt-0.5 text-[13px] text-muted-foreground">{description}</p>
       </div>
-      <div className="liquid-panel overflow-hidden rounded-[24px]">{children}</div>
+      <div className="overflow-hidden rounded-[24px] border border-border bg-card">{children}</div>
     </section>
   );
 }
@@ -234,7 +236,7 @@ function SettingsPage() {
       <div id="settings-sections" className="flex-1 space-y-6 px-4 py-4">
         <Link
           to="/profile"
-          className="liquid-panel flex items-center gap-3 rounded-[24px] px-4 py-3 transition active:scale-[0.99]"
+          className="flex items-center gap-3 rounded-[24px] border border-border bg-card px-4 py-3 transition active:scale-[0.99]"
         >
           <ChatAvatar name={profile?.display_name ?? "Me"} path={profile?.avatar_url} size={56} />
           <div className="min-w-0 flex-1">
@@ -271,7 +273,11 @@ function SettingsPage() {
           <p className="px-4 pb-3 text-[13px] text-muted-foreground">{user?.email}</p>
         </SettingsSection>
 
-        <SettingsSection title="Privacy" description="Choose what other people can see about you.">
+        <SettingsSection
+          id="privacy"
+          title="Privacy"
+          description="Choose what other people can see about you."
+        >
           <div className="overflow-hidden rounded-[24px]">
             {values === null ? (
               <div className="flex justify-center py-8">
@@ -300,8 +306,9 @@ function SettingsPage() {
         </SettingsSection>
 
         <SettingsSection
+          id="appearance"
           title="Chats"
-          description="Keep conversations comfortable and easy to scan."
+          description="Aurora appearance follows your device's light or dark setting."
         >
           <SettingsRow
             label="Message appearance"
@@ -312,6 +319,7 @@ function SettingsPage() {
         </SettingsSection>
 
         <SettingsSection
+          id="devices"
           title="Notifications"
           description="Register this device for Firebase push messages."
         >
@@ -362,7 +370,11 @@ function SettingsPage() {
           />
         </SettingsSection>
 
-        <SettingsSection title="Help" description="Find support and information about Ripple.">
+        <SettingsSection
+          id="support"
+          title="Help"
+          description="Find support and information about Ripple."
+        >
           <SettingsRow label="Help center" hint="Troubleshooting and account guidance" />
           <div className="h-px bg-border" />
           <SettingsRow label="About Ripple" hint="Private messaging, status, and calling" />

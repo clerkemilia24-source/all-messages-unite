@@ -851,7 +851,11 @@ function Conversation() {
                     </span>
                   )}
                   <div
-                    className={`relative max-w-[82%] rounded-[24px] px-3.5 py-2 shadow-sm ${own ? "rounded-br-lg bg-bubble-out text-bubble-out-foreground" : "rounded-bl-lg border border-border bg-bubble-in text-bubble-in-foreground"}`}
+                    className={`relative max-w-[82%] rounded-[24px] px-3.5 py-2 shadow-sm ${
+                      own
+                        ? "sent-bubble rounded-br-lg bg-bubble-out text-bubble-out-foreground"
+                        : "rounded-bl-lg border border-border bg-bubble-in text-bubble-in-foreground"
+                    }`}
                     onDoubleClick={() => !m.deleted_at && setSelected(m.id)}
                     onContextMenu={(event) => {
                       event.preventDefault();
@@ -1009,7 +1013,7 @@ function Conversation() {
         )}
         <div ref={bottom} />
       </section>
-      <footer className="liquid-chrome relative shrink-0 px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <footer className="liquid-crystal relative shrink-0 px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         {multiSelect.size > 0 && (
           <div className="mb-2 flex items-center justify-between rounded-lg bg-secondary px-3 py-2 text-sm">
             <span>{multiSelect.size} selected</span>
