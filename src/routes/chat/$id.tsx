@@ -737,7 +737,7 @@ function Conversation() {
   const lastOutgoing = messages.filter((m) => m.sender_id === user?.id).at(-1)?.id;
   return (
     <main className="mx-auto flex h-dvh w-full max-w-2xl flex-col bg-background text-foreground">
-      <header className="liquid-chrome relative flex shrink-0 items-center justify-between px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <header className="chat-app-bar liquid-chrome relative flex shrink-0 items-center justify-between px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <Button
           asChild
           variant="ghost"
@@ -768,6 +768,26 @@ function Conversation() {
             </p>
           </div>
         </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 rounded-full text-foreground hover:bg-primary/10"
+          aria-label="Start voice call"
+          onClick={() => void startCall(id, "voice", title)}
+        >
+          <Phone className="h-5 w-5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 rounded-full text-foreground hover:bg-primary/10"
+          aria-label="Start video call"
+          onClick={() => void startCall(id, "video", title)}
+        >
+          <Video className="h-5 w-5" />
+        </Button>
         <Button
           variant="ghost"
           size="icon"
@@ -816,6 +836,25 @@ function Conversation() {
             const own = m.sender_id === user?.id;
             const quoted = messages.find((x) => x.id === m.reply_to);
             const rs = reactions.filter((r) => r.message_id === m.id);
+            const otherMembers = members.filter((member) => member.user_id !== user?.id);
+            const readByAll =
+              otherMembers.length > 0 &&
+              members.every(
+                (member) =>
+                  member.user_id === user?.id ||
+                  new Date(member.last_read_at) >= new Date(m.created_at),
+              );
+            const readBySomeone = otherMembers.some(
+              (member) => new Date(member.last_read_at) >= new Date(m.created_at),
+            );
+            const receipt =
+              own && m.id === lastOutgoing
+                ? readByAll
+                  ? "Read"
+                  : readBySomeone
+                    ? "Delivered"
+                    : "Sent"
+                : null;
             const showDate =
               i === 0 ||
               new Date(m.created_at).getTime() -
@@ -825,7 +864,8 @@ function Conversation() {
               <div
                 key={m.id}
                 id={`message-${m.id}`}
-                className={`${targetMessage === m.id ? "rounded-lg ring-2 ring-primary" : ""} ${multiSelect.has(m.id) ? "bg-primary/10" : ""}`}
+                data-actions-open={selected === m.id ? "true" : undefined}
+                className={`message-row group/message ${targetMessage === m.id ? "rounded-lg ring-2 ring-primary" : ""} ${multiSelect.has(m.id) ? "bg-primary/10" : ""}`}
                 onPointerDown={(event) => {
                   touchStart.current = event.clientX;
                 }}
@@ -840,8 +880,10 @@ function Conversation() {
                 }}
               >
                 {showDate && (
-                  <p className="my-5 text-center text-xs text-muted-foreground">
-                    {formatDivider(m.created_at)}
+                  <p className="date-divider my-5 text-center">
+                    <span className="date-divider-chip liquid-chrome">
+                      {formatDivider(m.created_at)}
+                    </span>
                   </p>
                 )}
                 <div className={`mb-2 flex flex-col ${own ? "items-end" : "items-start"}`}>
@@ -862,6 +904,17 @@ function Conversation() {
                       setSelected(m.id);
                     }}
                   >
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="message-action-chip liquid-chrome absolute -right-3 -top-3 h-6 w-6 rounded-full p-0 text-foreground"
+                      aria-label={`Message actions ${i + 1}`}
+                      tabIndex={0}
+                      onClick={() => setSelected(selected === m.id ? null : m.id)}
+                    >
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </Button>
                     {quoted && (
                       <p className="mb-2 border-l-2 border-current pl-2 text-xs opacity-75">
                         {quoted.deleted_at ? "Message deleted" : quoted.body || "Attachment"}
@@ -879,30 +932,33 @@ function Conversation() {
                         )}
                       </>
                     )}
-                  </div>
-                  {!m.deleted_at && (
-                    <div className="flex items-center gap-1">
-                      {rs.length > 0 && (
-                        <span
-                          className="rounded-full border border-border bg-card px-2 text-sm"
-                          aria-label="Tapbacks"
-                        >
-                          {Array.from(new Set(rs.map((r) => r.emoji))).join(" ")}{" "}
-                          {rs.length > 1 ? rs.length : ""}
+                    <div className="mt-1 flex min-h-3 items-center justify-end gap-1 text-[10px] leading-none text-ink-tertiary">
+                      {m.edited_at && <span>Edited</span>}
+                      <time dateTime={m.created_at}>
+                        {new Date(m.created_at).toLocaleTimeString([], {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </time>
+                      {receipt && (
+                        <span className="inline-flex items-center gap-0.5">
+                          {receipt === "Read" && (
+                            <CheckCheck className="h-3 w-3" aria-hidden="true" />
+                          )}
+                          {receipt}
                         </span>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-11 w-11 text-muted-foreground"
-                        aria-label={`Message actions ${i + 1}`}
-                        onClick={() => setSelected(selected === m.id ? null : m.id)}
+                    </div>
+                  </div>
+                  {!m.deleted_at && rs.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      <span
+                        className="rounded-full border border-border bg-card px-2 text-sm"
+                        aria-label="Tapbacks"
                       >
-                        <MoreHorizontal />
-                      </Button>
-                      {m.edited_at && (
-                        <span className="text-[10px] text-muted-foreground">Edited</span>
-                      )}
+                        {Array.from(new Set(rs.map((r) => r.emoji))).join(" ")}{" "}
+                        {rs.length > 1 ? rs.length : ""}
+                      </span>
                     </div>
                   )}
                   {selected === m.id && (
@@ -978,24 +1034,6 @@ function Conversation() {
                       </div>
                     </div>
                   )}
-                  {own && m.id === lastOutgoing && !m.deleted_at && (
-                    <span className="text-[11px] text-muted-foreground">
-                      {members.filter((x) => x.user_id !== user?.id).length > 0 &&
-                      members.every(
-                        (x) =>
-                          x.user_id === user?.id ||
-                          new Date(x.last_read_at) >= new Date(m.created_at),
-                      )
-                        ? "Read"
-                        : members.some(
-                              (x) =>
-                                x.user_id !== user?.id &&
-                                new Date(x.last_read_at) >= new Date(m.created_at),
-                            )
-                          ? "Delivered"
-                          : "Sent"}
-                    </span>
-                  )}
                 </div>
               </div>
             );
@@ -1003,17 +1041,20 @@ function Conversation() {
         {typing.length > 0 && (
           <div
             role="status"
-            className="mt-3 w-fit rounded-full bg-bubble-in px-4 py-2 text-sm text-muted-foreground"
+            aria-label={`${typing.map((id) => profiles.find((profile) => profile.id === id)?.display_name ?? "Someone").join(", ")} typing`}
+            className="typing-bubble mt-3 w-fit rounded-[24px] border border-border bg-bubble-in px-4 py-3 text-bubble-in-foreground"
           >
-            {typing
-              .map((t) => profiles.find((p) => p.id === t)?.display_name ?? "Someone")
-              .join(", ")}{" "}
-            is typing…
+            <span className="sr-only">Someone is typing</span>
+            <span className="typing-dots" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
           </div>
         )}
         <div ref={bottom} />
       </section>
-      <footer className="liquid-crystal relative shrink-0 px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <footer className="relative shrink-0 px-0 py-0">
         {multiSelect.size > 0 && (
           <div className="mb-2 flex items-center justify-between rounded-lg bg-secondary px-3 py-2 text-sm">
             <span>{multiSelect.size} selected</span>
@@ -1157,7 +1198,7 @@ function Conversation() {
           </div>
         )}
         <form
-          className="flex items-end gap-1 rounded-[24px] p-1"
+          className="chat-composer liquid-crystal mx-3 mb-3 flex items-end gap-1 rounded-[26px] p-1.5"
           onSubmit={(e) => {
             e.preventDefault();
             void send();
@@ -1220,7 +1261,7 @@ function Conversation() {
             aria-label="Attach photo or file"
             disabled={busy || !!editing || !ready || !!error}
             onClick={() => setAttachmentSheet((value) => !value)}
-            className="h-11 w-11 shrink-0 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
+            className="chat-composer-icon h-10 w-10 shrink-0 rounded-full hover:bg-primary/10"
           >
             <Paperclip className="h-4 w-4" />
           </Button>
@@ -1230,7 +1271,7 @@ function Conversation() {
             size="icon"
             aria-label="Open emoji picker"
             onClick={() => setStickersOpen((value) => !value)}
-            className="h-11 w-11 shrink-0 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
+            className="chat-composer-icon h-10 w-10 shrink-0 rounded-full hover:bg-primary/10"
           >
             <Smile className="h-4 w-4" />
           </Button>
@@ -1266,7 +1307,7 @@ function Conversation() {
               recordingGesture.current = null;
               void cancelRecording();
             }}
-            className="h-11 w-11 shrink-0 touch-none rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
+            className="chat-composer-icon h-10 w-10 shrink-0 touch-none rounded-full hover:bg-primary/10"
           >
             <Mic className="h-4 w-4" />
           </Button>
@@ -1276,7 +1317,7 @@ function Conversation() {
             size="icon"
             aria-label="Take a photo"
             onClick={() => cameraInput.current?.click()}
-            className="h-11 w-11 shrink-0 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
+            className="chat-composer-icon h-10 w-10 shrink-0 rounded-full hover:bg-primary/10"
           >
             <Camera className="h-4 w-4" />
           </Button>
@@ -1287,7 +1328,7 @@ function Conversation() {
             rows={1}
             value={body}
             disabled={busy || !!error}
-            className="max-h-32 min-h-11 min-w-0 flex-1 resize-none rounded-[24px] border border-border bg-card px-4 py-2 text-[15px] text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+            className="max-h-32 min-h-10 min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-2 text-[15px] text-foreground outline-none placeholder:text-muted-foreground focus:ring-0"
             onChange={(e) => {
               setBody(e.target.value);
               if (user && Date.now() - lastTyping.current > 1500) {
@@ -1309,7 +1350,7 @@ function Conversation() {
           <Button
             type="submit"
             size="icon"
-            className="h-11 w-11 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+            className="prism-send h-10 w-10 shrink-0 rounded-full bg-primary text-white hover:bg-primary/90"
             aria-label={editing ? "Save message" : "Send message"}
             disabled={busy || !ready || !!error || (!body.trim() && !file)}
           >

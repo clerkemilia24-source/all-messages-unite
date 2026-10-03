@@ -229,18 +229,15 @@ function Inbox() {
                 <Link
                   to="/chat/$id"
                   params={{ id: c.id }}
-                  className="flex items-center gap-3 px-4 py-2.5 transition active:bg-secondary"
+                  className="relative flex items-center gap-3 px-4 py-2.5 transition active:bg-secondary"
                 >
-                  <span className="flex w-2 justify-center">
-                    {c.unread > 0 && <span className="h-2 w-2 rounded-full bg-primary" />}
-                  </span>
                   <ChatAvatar
                     name={conversationTitle(c)}
                     path={c.is_group ? null : other?.avatar_url}
                     size={50}
                     online={!c.is_group && isOnline(other?.last_seen)}
                   />
-                  <div className="min-w-0 flex-1">
+                  <div className={`min-w-0 flex-1 ${c.unread > 0 ? "pr-5" : ""}`}>
                     <div className="flex items-baseline justify-between gap-2">
                       <p className="truncate text-[17px] font-semibold text-foreground">
                         {conversationTitle(c)}
@@ -253,6 +250,13 @@ function Inbox() {
                       {previewText(c.lastMessage)}
                     </p>
                   </div>
+                  {c.unread > 0 && (
+                    <span
+                      role="img"
+                      aria-label={`${c.unread} unread messages`}
+                      className="absolute right-4 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-primary"
+                    />
+                  )}
                 </Link>
               </li>
             );
