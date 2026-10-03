@@ -190,7 +190,13 @@ export const getSocialFeed = createServerFn({ method: "GET" })
     const postIds = posts.map((post) => post.id);
     const authorIds = Array.from(new Set(posts.map((post) => post.author_id)));
     const repostIds = posts.map((post) => post.repost_of).filter((id): id is string => Boolean(id));
-    const [{ data: profiles }, { data: likes }, { data: comments }, originals] = await Promise.all([
+    const [
+      { data: profiles },
+      { data: likes },
+      { data: comments },
+      { data: savedPosts, error: savesError },
+      originals,
+    ] = await Promise.all([
       context.supabase
         .from("profiles")
         .select("id, username, display_name, avatar_url")
@@ -202,6 +208,11 @@ export const getSocialFeed = createServerFn({ method: "GET" })
         .in("post_id", postIds)
         .order("created_at", { ascending: true })
         .limit(500),
+      context.supabase
+        .from("social_post_saves")
+        .select("post_id")
+        .eq("user_id", context.userId)
+        .in("post_id", postIds),
       repostIds.length
         ? context.supabase
             .from("social_posts")
@@ -209,6 +220,7 @@ export const getSocialFeed = createServerFn({ method: "GET" })
             .in("id", repostIds)
         : Promise.resolve({ data: [] }),
     ]);
+    if (savesError) throw new Error("Could not load saved posts.");
 
     if (!viewCountMap.size) {
       const viewsResult = await context.supabase.rpc("get_social_post_view_counts", {
@@ -261,6 +273,7 @@ export const getSocialFeed = createServerFn({ method: "GET" })
     for (const like of likes ?? []) {
       likeGroups.set(like.post_id, [...(likeGroups.get(like.post_id) ?? []), like.user_id]);
     }
+    const savedPostIds = new Set((savedPosts ?? []).map((savedPost) => savedPost.post_id));
     const originalMap = new Map(originalPosts.map((post) => [post.id, post]));
 
     return posts.map((post) => {
@@ -273,6 +286,7 @@ export const getSocialFeed = createServerFn({ method: "GET" })
         viewCount: viewCountMap.get(post.id) ?? 0,
         likeCount: postLikes.length,
         likedByMe: postLikes.includes(context.userId),
+        savedByMe: savedPostIds.has(post.id),
         followingAuthor: followedIds.has(post.author_id),
         comments: (commentGroups.get(post.id) ?? []).map((comment) => ({
           ...comment,

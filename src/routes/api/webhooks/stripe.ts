@@ -36,7 +36,9 @@ function constantTimeEqual(left: string, right: string) {
 async function verifyStripeSignature(body: string, header: string, secret: string) {
   const parts = header.split(",").map((part) => part.split("=", 2));
   const timestamp = parts.find(([key]) => key === "t")?.[1];
-  const signatures = parts.filter(([key]) => key === "v1").map(([, value]) => value);
+  const signatures = parts.flatMap(([key, value]) =>
+    key === "v1" && value ? [value] : [],
+  );
   if (!timestamp || !/^\d+$/.test(timestamp) || signatures.length === 0) return false;
   if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false;
 

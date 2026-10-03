@@ -786,7 +786,7 @@ function Conversation() {
               size="icon"
               className="h-11 w-11 rounded-full text-foreground hover:bg-primary/10"
               aria-label="Start voice call"
-              onClick={() => void startCall(id, "voice", title)}
+              onClick={() => void startCall(id, "audio", title)}
             >
               <Phone className="h-5 w-5" />
             </Button>

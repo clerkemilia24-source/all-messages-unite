@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { getSignedUrl } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 
-export function useRemoteUrl(bucket: string, path?: string | null) {
+export function useRemoteUrl(bucket: string, path?: string | null, revision = 0) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
@@ -16,7 +16,7 @@ export function useRemoteUrl(bucket: string, path?: string | null) {
     return () => {
       active = false;
     };
-  }, [bucket, path]);
+  }, [bucket, path, revision]);
   return url;
 }
 

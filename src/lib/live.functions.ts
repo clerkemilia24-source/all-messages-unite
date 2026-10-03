@@ -56,7 +56,7 @@ export const getLiveStreams = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data: streams, error } = await context.supabase
       .from("live_streams")
-      .select("id, host_id, title, created_at, started_at")
+      .select("id, host_id, title, status, created_at, started_at")
       .eq("status", "live")
       .order("started_at", { ascending: false })
       .limit(50);

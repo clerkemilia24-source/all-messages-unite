@@ -33,7 +33,7 @@ type LiveSession = {
   status: string;
   created_at: string;
   started_at: string | null;
-  host: { username: string; display_name: string; avatar_url: string | null } | null;
+  host: { id: string; username: string; display_name: string; avatar_url: string | null } | null;
 };
 
 type LiveChatMessage = {
@@ -100,6 +100,7 @@ function LivePage() {
         created_at: new Date().toISOString(),
         started_at: null,
         host: {
+          id: user.id,
           username: profile?.username ?? "creator",
           display_name: profile?.display_name ?? "You",
           avatar_url: profile?.avatar_url ?? null,

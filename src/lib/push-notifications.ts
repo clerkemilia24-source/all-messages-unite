@@ -6,12 +6,12 @@ import { supabase } from "@/integrations/supabase/client";
 const installationKey = (userId: string) => `ripple-push-installation:${userId}`;
 
 const firebaseEnvironment = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string | undefined,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID as string | undefined,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID as string | undefined,
-  vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY as string | undefined,
+  apiKey: import.meta.env["VITE_FIREBASE_API_KEY"] as string | undefined,
+  authDomain: import.meta.env["VITE_FIREBASE_AUTH_DOMAIN"] as string | undefined,
+  projectId: import.meta.env["VITE_FIREBASE_PROJECT_ID"] as string | undefined,
+  messagingSenderId: import.meta.env["VITE_FIREBASE_MESSAGING_SENDER_ID"] as string | undefined,
+  appId: import.meta.env["VITE_FIREBASE_APP_ID"] as string | undefined,
+  vapidKey: import.meta.env["VITE_FIREBASE_VAPID_KEY"] as string | undefined,
 };
 
 const requiredEnvironment: [keyof typeof firebaseEnvironment, string][] = [
@@ -81,7 +81,7 @@ export async function registerFirebaseDevice(userId: string) {
   if (permission !== "granted") throw new Error("Notification permission was not granted.");
 
   const messaging = await getBrowserMessaging();
-  const token = await getToken(messaging, { vapidKey: firebaseEnvironment.vapidKey });
+  const token = await getToken(messaging, { vapidKey: firebaseEnvironment.vapidKey! });
   if (!token) throw new Error("Firebase did not issue a device token.");
   const installationId = getInstallationId(userId);
   const { error } = await supabase.from("push_device_tokens").upsert(
