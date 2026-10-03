@@ -32,6 +32,10 @@ export const Route = createFileRoute("/wallet")({
     meta: [
       { title: "Wallet — Ripple" },
       { name: "description", content: "View settled and pending wallet activity." },
+      { property: "og:title", content: "Wallet — Ripple" },
+      { property: "og:description", content: "View settled and pending wallet activity on Ripple." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: WalletPage,

@@ -1,10 +1,10 @@
 import { Link } from "@tanstack/react-router";
-import { MessageSquare, CircleDashed, Users, Settings, PanelsTopLeft, ShoppingBag } from "lucide-react";
+import { MessageSquare, CircleDashed, Wallet, Settings, PanelsTopLeft, ShoppingBag } from "lucide-react";
 
 const TABS = [
   { to: "/", label: "Chat", Icon: MessageSquare, exact: true },
   { to: "/status", label: "Status", Icon: CircleDashed, exact: false },
-  { to: "/contacts", label: "Contact", Icon: Users, exact: false },
+  { to: "/wallet", label: "Wallet", Icon: Wallet, exact: false },
   { to: "/feed", label: "Feed", Icon: PanelsTopLeft, exact: false },
   { to: "/shop", label: "Shop", Icon: ShoppingBag, exact: false },
   { to: "/settings", label: "Settings", Icon: Settings, exact: false },

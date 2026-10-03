@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ChevronLeft, Check } from "lucide-react";
+import { ChevronLeft, Check, Users, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, isOnline } from "@/lib/auth";
@@ -128,6 +128,15 @@ function NewChat() {
           )}
         </div>
       </header>
+
+      <Link
+        to="/contacts"
+        className="flex min-h-14 items-center gap-3 border-b border-border px-4 text-primary transition active:bg-secondary"
+      >
+        <Users className="h-5 w-5" aria-hidden="true" />
+        <span className="flex-1 text-[16px] font-semibold">Contacts</span>
+        <ChevronRight className="h-5 w-5" aria-hidden="true" />
+      </Link>
 
       <ul className="flex-1 divide-y divide-border">
         {results.map((p) => {
