@@ -427,7 +427,7 @@ function SettingsPage() {
         <SettingsSection
           id="devices"
           title="Notifications"
-          description="Register this device for Firebase push messages."
+          description="Get alerts for new messages and calls on this device."
         >
           <SettingsRow
             label="This device"
