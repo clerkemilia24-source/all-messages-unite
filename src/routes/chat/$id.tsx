@@ -17,6 +17,7 @@ import {
   LockKeyhole,
   LockKeyholeOpen,
   Camera,
+  Image as ImageIcon,
   Smile,
   Copy,
   Forward,
@@ -34,7 +35,6 @@ import { uploadFile } from "@/lib/storage";
 import { ChatAvatar, useRemoteUrl } from "@/components/RemoteImage";
 import { Button } from "@/components/ui/button";
 import { useCalls, type CallRow } from "@/lib/calls";
-import { BottomNav } from "@/components/BottomNav";
 
 export const Route = createFileRoute("/chat/$id")({
   validateSearch: (search: Record<string, unknown>): { message?: string } =>
@@ -59,6 +59,30 @@ type FailedRecording = {
   kind: "voice" | "video-note";
   duration: number;
 };
+
+const EMOJI_KEYBOARD = {
+  Smileys: [
+    "😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "🙃", "😉", "😊", "😇", "🥰", "😍", "🤩",
+    "😘", "😗", "☺️", "😚", "😙", "🥲", "😋", "😛", "😜", "🤪", "😝", "🤑", "🤗", "🤭", "🫢", "🫣",
+    "🤫", "🤔", "🫡", "🤐", "🤨", "😐", "😑", "😶", "🫥", "😏", "😒", "🙄", "😬", "😮‍💨", "🤥", "😌",
+    "😔", "😪", "🤤", "😴", "😷", "🤒", "🤕", "🤢", "🤮", "🥵", "🥶", "🥴", "😵", "🤯", "🤠", "🥳",
+  ],
+  Gestures: [
+    "👋", "🤚", "🖐️", "✋", "🖖", "🫱", "🫲", "🫳", "🫴", "👌", "🤌", "🤏", "✌️", "🤞", "🫰", "🤟",
+    "🤘", "🤙", "👈", "👉", "👆", "👇", "☝️", "🫵", "👍", "👎", "✊", "👊", "🤛", "🤜", "👏", "🙌",
+    "🫶", "👐", "🤲", "🤝", "🙏", "✍️", "💅", "🤳", "💪", "🦾", "🖕", "🫂", "👂", "🦻", "👃", "🫀",
+  ],
+  Hearts: [
+    "❤️", "🧡", "💛", "💚", "💙", "🩵", "💜", "🤎", "🖤", "🩶", "🤍", "💔", "❤️‍🔥", "❤️‍🩹", "❣️", "💕",
+    "💞", "💓", "💗", "💖", "💘", "💝", "💟", "♥️", "😍", "🥰", "😘", "💌", "💋", "💑", "💏", "💐",
+  ],
+  Symbols: [
+    "💯", "💢", "💥", "💫", "💦", "💨", "🕳️", "💬", "👁️‍🗨️", "🗨️", "🗯️", "💭", "🔥", "✨", "🌟", "⭐",
+    "⚡", "☀️", "🌈", "☁️", "❄️", "☔", "🎉", "🎊", "🎈", "🎁", "🔔", "🎵", "🎶", "✅", "❌", "❓",
+    "❗", "⭕", "➕", "➖", "➡️", "⬅️", "⬆️", "⬇️", "🔒", "🔑", "♻️", "©️", "®️", "™️", "💤", "🚫",
+  ],
+} as const;
+type EmojiCategory = "Recent" | keyof typeof EMOJI_KEYBOARD;
 
 function CallEntry({
   call,
@@ -276,9 +300,12 @@ function Conversation() {
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [waveform, setWaveform] = useState<number[]>(() => Array(32).fill(0.08));
   const [stickersOpen, setStickersOpen] = useState(false);
+  const [emojiCategory, setEmojiCategory] = useState<EmojiCategory>("Smileys");
+  const [recentEmojis, setRecentEmojis] = useState<string[]>([]);
   const [attachmentSheet, setAttachmentSheet] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [multiSelect, setMultiSelect] = useState<Set<string>>(new Set());
+  const currentUserId = user?.id;
   const recorder = useRef<MediaRecorder | null>(null);
   const recordingPending = useRef(false);
   const releasePending = useRef(false);
@@ -291,10 +318,48 @@ function Conversation() {
   const touchStart = useRef<number | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
+  const mediaInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
   const gifInput = useRef<HTMLInputElement>(null);
   const emojiInput = useRef<HTMLTextAreaElement>(null);
   const lastTyping = useRef(0);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    try {
+      const saved = localStorage.getItem(`bigad-recent-emojis:${currentUserId}`);
+      if (saved) {
+        const parsed: unknown = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.every((emoji) => typeof emoji === "string")) {
+          setRecentEmojis(parsed.slice(0, 24));
+        }
+      }
+    } catch {
+      setRecentEmojis([]);
+    }
+  }, [currentUserId]);
+
+  function insertEmoji(emoji: string) {
+    setBody((text) => text + emoji);
+    setRecentEmojis((current) => {
+      const next = [emoji, ...current.filter((recent) => recent !== emoji)].slice(0, 24);
+      if (user) {
+        try {
+          localStorage.setItem(`bigad-recent-emojis:${user.id}`, JSON.stringify(next));
+        } catch {
+          return next;
+        }
+      }
+      return next;
+    });
+  }
+
+  function toggleEmojiPicker() {
+    emojiInput.current?.blur();
+    setAttachmentSheet(false);
+    setEmojiCategory("Recent");
+    setStickersOpen((open) => !open);
+  }
 
   useEffect(() => {
     if (!recording) return;
@@ -1060,7 +1125,7 @@ function Conversation() {
         )}
         <div ref={bottom} />
       </section>
-      <footer className="relative shrink-0 px-0 py-0">
+      <footer className="chat-footer relative shrink-0 px-0 pt-0">
         {multiSelect.size > 0 && (
           <div className="mb-2 flex items-center justify-between rounded-lg bg-secondary px-3 py-2 text-sm">
             <span>{multiSelect.size} selected</span>
@@ -1091,43 +1156,6 @@ function Conversation() {
             >
               <X />
             </Button>
-          </div>
-        )}
-        {stickersOpen && (
-          <div
-            className="mb-2 flex gap-2 overflow-x-auto rounded-xl bg-card p-3 text-3xl"
-            role="dialog"
-            aria-label="Emoji picker"
-          >
-            <Button
-              type="button"
-              variant="secondary"
-              className="h-10 shrink-0 rounded-xl px-3 text-sm font-bold"
-              onClick={() => {
-                gifInput.current?.click();
-                setStickersOpen(false);
-              }}
-            >
-              GIF
-            </Button>
-            {["😀", "😂", "🥰", "❤️", "👍", "🎉", "😭", "🙏", "🔥", "👋", "✨", "💙"].map(
-              (emoji) => (
-                <Button
-                  key={emoji}
-                  variant="ghost"
-                  size="icon"
-                  className="h-11 w-11 shrink-0 text-2xl"
-                  onClick={() => {
-                    setBody((text) => text + emoji);
-                    setStickersOpen(false);
-                    emojiInput.current?.focus();
-                  }}
-                  aria-label={`Insert ${emoji}`}
-                >
-                  {emoji}
-                </Button>
-              ),
-            )}
           </div>
         )}
         {recording && (
@@ -1215,7 +1243,7 @@ function Conversation() {
           </div>
         )}
         <form
-          className="chat-composer liquid-crystal mx-3 mb-3 flex items-end gap-1 rounded-[26px] p-1.5"
+          className="chat-composer relative mx-3 mb-0 flex items-end gap-1 rounded-[26px] p-1.5"
           onSubmit={(e) => {
             e.preventDefault();
             void send();
@@ -1229,6 +1257,22 @@ function Conversation() {
               const f = e.target.files?.[0];
               if (f && f.size > 25 * 1024 * 1024) toast.error("Choose a file smaller than 25 MB.");
               else setFile(f ?? null);
+              e.target.value = "";
+            }}
+          />
+          <input
+            type="file"
+            accept="image/*,video/*"
+            ref={mediaInput}
+            className="hidden"
+            aria-label="Choose photos or videos"
+            onChange={(e) => {
+              const selectedMedia = e.target.files?.[0];
+              if (selectedMedia && selectedMedia.size > 25 * 1024 * 1024) {
+                toast.error("Choose media smaller than 25 MB.");
+              } else if (selectedMedia) {
+                setFile(selectedMedia);
+              }
               e.target.value = "";
             }}
           />
@@ -1263,28 +1307,116 @@ function Conversation() {
               e.target.value = "";
             }}
           />
+          {stickersOpen && (
+            <div
+              className="emoji-keyboard-panel absolute bottom-full z-30 mb-2 w-full"
+              role="dialog"
+              aria-label="Emoji keyboard"
+            >
+              <div className="flex h-12 items-center gap-1 overflow-x-auto border-b border-border px-2">
+                {(["Recent", "Smileys", "Gestures", "Hearts", "Symbols"] as const).map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${
+                      emojiCategory === category
+                        ? "emoji-category-active"
+                        : "text-muted-foreground"
+                    }`}
+                    aria-pressed={emojiCategory === category}
+                    onClick={() => setEmojiCategory(category)}
+                  >
+                    {category}
+                  </button>
+                ))}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto h-9 shrink-0 px-3 text-sm font-bold"
+                  onClick={() => {
+                    setStickersOpen(false);
+                    gifInput.current?.click();
+                  }}
+                >
+                  GIF
+                </Button>
+              </div>
+              <div className="emoji-keyboard-grid no-scrollbar grid grid-cols-8 content-start gap-1 overflow-y-auto p-2">
+                {(emojiCategory === "Recent"
+                  ? recentEmojis
+                  : EMOJI_KEYBOARD[emojiCategory as keyof typeof EMOJI_KEYBOARD]
+                ).map((emoji, index) => (
+                  <button
+                    key={`${emoji}-${index}`}
+                    type="button"
+                    className="grid aspect-square min-w-0 place-items-center rounded-lg text-[24px] leading-none hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={`Insert ${emoji}`}
+                    onClick={() => insertEmoji(emoji)}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+                {emojiCategory === "Recent" && recentEmojis.length === 0 && (
+                  <p className="col-span-8 py-5 text-center text-sm text-muted-foreground">
+                    Recently used emoji will appear here
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
           {attachmentSheet && (
-            <div className="absolute bottom-full left-3 mb-2 flex gap-2 rounded-2xl border border-border bg-popover p-2 shadow-lg">
+            <div
+              className="attachment-picker absolute bottom-full left-0 z-30 mb-2 grid w-full grid-cols-4 gap-1 rounded-2xl p-2 shadow-lg"
+              role="dialog"
+              aria-label="Choose attachment"
+            >
               <Button
                 type="button"
-                variant="secondary"
+                variant="ghost"
+                onClick={() => {
+                  mediaInput.current?.click();
+                  setAttachmentSheet(false);
+                }}
+                className="flex h-16 flex-col gap-1 rounded-xl px-4 text-xs"
+              >
+                <ImageIcon className="h-5 w-5" />
+                Photos
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
                 onClick={() => {
                   input.current?.click();
                   setAttachmentSheet(false);
                 }}
+                className="flex h-16 flex-col gap-1 rounded-xl px-4 text-xs"
               >
-                <Paperclip className="mr-2 h-4 w-4" />
-                Photo or file
+                <Paperclip className="h-5 w-5" />
+                Files
               </Button>
               <Button
                 type="button"
-                variant="secondary"
+                variant="ghost"
+                onClick={() => {
+                  setAttachmentSheet(false);
+                  gifInput.current?.click();
+                }}
+                className="flex h-16 flex-col gap-1 rounded-xl px-2 text-xs"
+              >
+                <Smile className="h-5 w-5" />
+                GIF
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
                 onClick={() => {
                   cameraInput.current?.click();
                   setAttachmentSheet(false);
                 }}
+                className="flex h-16 flex-col gap-1 rounded-xl px-4 text-xs"
               >
-                <Camera className="mr-2 h-4 w-4" />
+                <Camera className="h-5 w-5" />
                 Camera
               </Button>
             </div>
@@ -1295,7 +1427,11 @@ function Conversation() {
             size="icon"
             aria-label="Attach photo or file"
             disabled={busy || !!editing || !ready || !!error}
-            onClick={() => setAttachmentSheet((value) => !value)}
+            onClick={() => {
+              emojiInput.current?.blur();
+              setStickersOpen(false);
+              setAttachmentSheet((value) => !value);
+            }}
             className="chat-composer-icon h-10 w-10 shrink-0 rounded-full hover:bg-primary/10"
           >
             <Paperclip className="h-4 w-4" />
@@ -1305,7 +1441,7 @@ function Conversation() {
             variant="ghost"
             size="icon"
             aria-label="Open emoji picker"
-            onClick={() => setStickersOpen((value) => !value)}
+            onClick={toggleEmojiPicker}
             className="chat-composer-icon h-10 w-10 shrink-0 rounded-full hover:bg-primary/10"
           >
             <Smile className="h-4 w-4" />
@@ -1328,6 +1464,10 @@ function Conversation() {
                   updated_at: new Date().toISOString(),
                 });
               }
+            }}
+            onFocus={() => {
+              setStickersOpen(false);
+              setAttachmentSheet(false);
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -1387,7 +1527,6 @@ function Conversation() {
           )}
         </form>
       </footer>
-      <BottomNav />
     </main>
   );
 }

@@ -65,14 +65,14 @@
 
 :root {
   --radius: 0.75rem;
-  color-scheme: light dark;
+  color-scheme: light;
   --background: oklch(0.975 0.012 258);
   --foreground: oklch(0.2 0.035 258);
   --card: oklch(0.995 0.004 258);
   --card-foreground: oklch(0.2 0.035 258);
   --popover: oklch(0.995 0.004 258);
   --popover-foreground: oklch(0.2 0.035 258);
-  --primary: oklch(0.49 0.16 250);
+  --primary: oklch(0.56 0.15 238);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.94 0.018 258);
   --secondary-foreground: oklch(0.22 0.035 258);
@@ -105,6 +105,9 @@
   --glass: oklch(1 0.008 258 / 0.62);
   --glass-heavy: oklch(1 0.008 258 / 0.62);
   --crystal: oklch(1 0.008 258 / 0.7);
+  --chat-glass-fill: oklch(1 0 0 / 0.75);
+  --chat-glass-border: oklch(0.45 0.02 258 / 0.16);
+  --chat-icon: #0284c7;
   --glass-border: oklch(0.84 0.02 258 / 0.75);
   --glass-highlight: oklch(1 0 0 / 0.78);
   --glass-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.02'/%3E%3C/svg%3E");
@@ -117,6 +120,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: oklch(0.14 0.025 264);
   --foreground: oklch(0.95 0.018 258);
   --card: oklch(0.2 0.03 264);
@@ -156,6 +160,9 @@
   --glass: oklch(0.95 0.025 258 / 0.08);
   --glass-heavy: oklch(0.95 0.025 258 / 0.08);
   --crystal: oklch(0.95 0.025 258 / 0.11);
+  --chat-glass-fill: oklch(0.95 0.025 258 / 0.11);
+  --chat-glass-border: oklch(0.95 0.025 258 / 0.14);
+  --chat-icon: #7dd3fc;
   --glass-border: oklch(0.95 0.025 258 / 0.14);
   --glass-highlight: oklch(0.98 0.012 258 / 0.24);
   --prism-start: oklch(0.47 0.12 225);
@@ -169,6 +176,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
     --background: oklch(0.14 0.025 264);
+    color-scheme: dark;
     --foreground: oklch(0.95 0.018 258);
     --card: oklch(0.2 0.03 264);
     --card-foreground: oklch(0.95 0.018 258);
@@ -207,6 +215,9 @@
     --glass: oklch(0.95 0.025 258 / 0.08);
     --glass-heavy: oklch(0.95 0.025 258 / 0.08);
     --crystal: oklch(0.95 0.025 258 / 0.11);
+    --chat-glass-fill: oklch(0.95 0.025 258 / 0.11);
+    --chat-glass-border: oklch(0.95 0.025 258 / 0.14);
+    --chat-icon: #7dd3fc;
     --glass-border: oklch(0.95 0.025 258 / 0.14);
     --glass-highlight: oklch(0.98 0.012 258 / 0.24);
     --prism-start: oklch(0.47 0.12 225);
@@ -301,7 +312,7 @@ button.bg-primary:active::after { transform: translateX(130%); }
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .liquid-panel, .liquid-chrome, .liquid-crystal {
+  .liquid-panel, .liquid-chrome, .liquid-crystal, .chat-composer, .emoji-keyboard-panel, .attachment-picker {
     background: var(--card);
     background-image: none;
     border-color: var(--border);
@@ -322,6 +333,7 @@ button.bg-primary:active::after { transform: translateX(130%); }
 }
 
 .chat-wallpaper {
+  position: relative;
   isolation: isolate;
   background: transparent;
 }
@@ -344,16 +356,46 @@ button.bg-primary:active::after { transform: translateX(130%); }
 }
 
 .chat-composer {
-  background-image:
-    linear-gradient(var(--crystal), var(--crystal)),
-    linear-gradient(120deg, oklch(0.8 0.13 205 / 0.7), oklch(0.62 0.19 275 / 0.65));
-  box-shadow: 0 12px 32px oklch(0.08 0.03 264 / 0.2);
+  background: var(--chat-glass-fill);
+  border: 1px solid var(--chat-glass-border);
+  box-shadow: 0 8px 24px oklch(0.08 0.03 264 / 0.12), inset 0 1px 0 oklch(1 0 0 / 0.12);
   backdrop-filter: blur(16px) saturate(150%);
   -webkit-backdrop-filter: blur(16px) saturate(150%);
 }
 
-.chat-composer-icon {
-  color: #0369a1;
+.chat-composer-icon { color: var(--chat-icon); }
+
+.chat-footer { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+
+.emoji-keyboard-panel,
+.attachment-picker {
+  overflow: hidden;
+  border: 1px solid var(--chat-glass-border);
+  border-radius: 20px;
+  background: var(--chat-glass-fill);
+  box-shadow: 0 10px 28px oklch(0.08 0.03 264 / 0.16);
+  backdrop-filter: blur(16px) saturate(145%);
+  -webkit-backdrop-filter: blur(16px) saturate(145%);
+}
+
+.emoji-keyboard-panel {
+  height: env(keyboard-inset-height, 38dvh);
+  min-height: min(280px, calc(100dvh - 11rem - env(safe-area-inset-top)));
+  max-height: calc(100dvh - 11rem - env(safe-area-inset-top));
+  display: flex;
+  flex-direction: column;
+}
+
+.emoji-keyboard-grid {
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  align-content: start;
+}
+
+.emoji-category-active {
+  background: oklch(0.92 0.035 235);
+  color: #075985;
 }
 
 .message-action-chip {
@@ -406,15 +448,35 @@ button.bg-primary:active::after { transform: translateX(130%); }
 .typing-dots span:nth-child(3) { animation-delay: 300ms; }
 
 .prism-send {
-  background: linear-gradient(120deg, var(--prism-start), var(--prism-end));
-  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.25), 0 4px 14px oklch(0.45 0.15 260 / 0.28);
+  background: linear-gradient(120deg, #38bdf8, #0284c7);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.3), 0 4px 12px oklch(0.35 0.12 235 / 0.18);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not(.light) .chat-composer-icon { color: #7dd3fc; }
+  :root:not(.light) .emoji-category-active {
+    background: oklch(0.95 0.025 258 / 0.12);
+    color: #7dd3fc;
+  }
+  :root:not(.light) .chat-composer,
+  :root:not(.light) .emoji-keyboard-panel,
+  :root:not(.light) .attachment-picker {
+    border-color: #ffffff24;
+    background-color: #eaf0fa1c;
+  }
 }
 
 .dark .chat-composer-icon { color: #7dd3fc; }
+.dark .emoji-category-active {
+  background: oklch(0.95 0.025 258 / 0.12);
+  color: #7dd3fc;
+}
+.dark .chat-composer,
+.dark .emoji-keyboard-panel,
+.dark .attachment-picker {
+  border-color: #ffffff24;
+  background-color: #eaf0fa1c;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .typing-dots span { animation: none; opacity: 0.75; }
@@ -422,28 +484,6 @@ button.bg-primary:active::after { transform: translateX(130%); }
 }
 
 
-@layer base {
-  * {
-    border-color: var(--color-border);
-  }
-
-  body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
-  }
-
-  button,
-  input,
-  textarea {
-    font: inherit;
-  }
-}
-
-main.bg-background {
-  background-color: transparent;
-}
-
-/* shadcn sidebar tokens (kept for bundled ui components) */
 @theme inline {
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -537,20 +577,15 @@ main.bg-background {
     background: linear-gradient(145deg, oklch(0.14 0.025 264), oklch(0.18 0.035 264));
   }
   :root:not(.light) nav[aria-label="Primary"] a.nav-active {
-    color: oklch(0.15 0.03 264);
+    color: #0b1526;
     background: linear-gradient(115deg, #38bdf8, #6366f1);
   }
 }
 
 .dark body { background: linear-gradient(145deg, oklch(0.14 0.025 264), oklch(0.18 0.035 264)); }
 .dark nav[aria-label="Primary"] a.nav-active {
-  color: oklch(0.15 0.03 264);
+  color: #0b1526;
   background: linear-gradient(115deg, #38bdf8, #6366f1);
-}
-
-nav[aria-label="Primary"] {
-  bottom: max(0.65rem, calc(env(safe-area-inset-bottom) + 0.65rem));
-  background-color: var(--chrome);
 }
 
 @media (prefers-reduced-transparency: reduce), (max-width: 380px) {
@@ -570,20 +605,12 @@ nav[aria-label="Primary"] {
 
 @utility no-scrollbar {
   scrollbar-width: none;
-  &::-webkit-scrollbar {
-    display: none;
-  }
+  &::-webkit-scrollbar { display: none; }
 }
 
 @keyframes bubble-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to { opacity: 1; transform: none; }
 }
 
 @utility animate-bubble {
