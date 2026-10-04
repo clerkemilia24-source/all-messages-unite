@@ -202,36 +202,29 @@ function SettingsPage() {
   useEffect(() => {
     if (!user) return;
     let active = true;
-    const missing = getMissingFirebaseConfiguration();
-    if (missing.length) {
-      setPushState("error");
-      setPushError(`Missing Firebase web config: ${missing.join(", ")}`);
-      return;
-    }
-    if (!("Notification" in window)) {
-      setPushState("unsupported");
-      return;
-    }
-    if (Notification.permission === "denied") {
-      setPushState("blocked");
-      return;
-    }
-    if (Notification.permission !== "granted") {
-      setPushState("disabled");
-      return;
-    }
-    void registerFirebaseDevice(user.id)
-      .then(() => {
+    void (async () => {
+      try {
+        const missing = await getMissingFirebaseConfiguration();
+        if (!active) return;
+        if (missing.length) {
+          setPushState("error");
+          setPushError("Notifications aren't configured yet.");
+          return;
+        }
+        if (!("Notification" in window)) return setPushState("unsupported");
+        if (Notification.permission === "denied") return setPushState("blocked");
+        if (Notification.permission !== "granted") return setPushState("disabled");
+        await registerFirebaseDevice(user.id, false);
         if (active) {
           setPushState("registered");
           setPushError(null);
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         if (!active) return;
-        setPushState("error");
-        setPushError(error instanceof Error ? error.message : "Push registration failed.");
-      });
+        setPushState("disabled");
+        setPushError(error instanceof Error ? error.message : null);
+      }
+    })();
     return () => {
       active = false;
     };
@@ -443,23 +436,23 @@ function SettingsPage() {
             hint={
               pushError ??
               (pushState === "registered"
-                ? "Device token registered. App event delivery is not configured yet."
-                : "Permission and Firebase setup are required.")
+                ? "Notifications are on for this device."
+                : pushState === "blocked"
+                  ? "Blocked — allow notifications in your browser's site settings."
+                  : pushState === "unsupported"
+                    ? "This browser doesn't support notifications."
+                    : "Turn on to get message alerts on this device.")
             }
           >
             <Button
               variant={pushState === "registered" ? "secondary" : "default"}
               size="sm"
-              disabled={
-                pushBusy ||
-                pushState === "loading" ||
-                pushState === "unsupported" ||
-                (pushState !== "registered" && getMissingFirebaseConfiguration().length > 0)
-              }
+              className="min-h-11"
+              disabled={pushBusy || pushState === "loading" || pushState === "unsupported"}
               onClick={() => void togglePush()}
             >
               {pushBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {pushState === "registered" ? "Remove device" : "Register device"}
+              {pushState === "registered" ? "Turn off" : "Turn on"}
             </Button>
           </SettingsRow>
         </SettingsSection>
