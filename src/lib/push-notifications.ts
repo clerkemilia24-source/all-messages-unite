@@ -48,11 +48,11 @@ async function getBrowserMessaging(): Promise<Messaging> {
     : initializeApp(
         {
           apiKey: cfg.apiKey,
-          authDomain: cfg.authDomain || undefined,
+          ...(cfg.authDomain ? { authDomain: cfg.authDomain } : {}),
           projectId: cfg.projectId,
           messagingSenderId: cfg.messagingSenderId,
           appId: cfg.appId,
-          storageBucket: cfg.storageBucket || undefined,
+          ...(cfg.storageBucket ? { storageBucket: cfg.storageBucket } : {}),
         },
         appName,
       );
@@ -87,7 +87,7 @@ export async function registerFirebaseDevice(userId: string, askPermission = tru
   const { getToken } = await import("firebase/messaging");
   const token = await getToken(messaging, {
     vapidKey: cfg.vapidKey,
-    serviceWorkerRegistration: swRegistration ?? undefined,
+    ...(swRegistration ? { serviceWorkerRegistration: swRegistration } : {}),
   });
   if (!token) throw new Error("Could not get a notification token for this device.");
   const installationId = getInstallationId(userId);
