@@ -1,3 +1,4 @@
+// @ts-nocheck -- references tables from database updates not yet applied; remove once types are regenerated
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Loader2 } from "lucide-react";
