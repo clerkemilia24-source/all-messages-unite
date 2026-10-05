@@ -1,4 +1,5 @@
 # Messaging completion
+- [x] Restore the earlier chat colors, phone-keyboard emoji entry, gallery picker and playable voice-note styling. Authenticated send/playback verification remains blocked without a signed-in conversation.
 - [ ] Restore Shop and Wallet live data loading. Blocked: their database tables and functions are not installed; prepared migrations need safe review/application.
 - [x] Move contacts into New Chat and replace the Contact tab with Wallet, retaining call history access.
 - [x] Put chat text on solid bubbles and keep Liquid Glass on the header, composer and tab chrome; support reduced transparency.

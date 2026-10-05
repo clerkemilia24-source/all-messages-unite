@@ -23,6 +23,7 @@ import {
   Copy,
   Forward,
   Play,
+  Pause,
   RotateCcw,
   Phone,
   PhoneCall,
@@ -60,30 +61,6 @@ type FailedRecording = {
   kind: "voice" | "video-note";
   duration: number;
 };
-
-const EMOJI_KEYBOARD = {
-  Smileys: [
-    "😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "🙃", "😉", "😊", "😇", "🥰", "😍", "🤩",
-    "😘", "😗", "☺️", "😚", "😙", "🥲", "😋", "😛", "😜", "🤪", "😝", "🤑", "🤗", "🤭", "🫢", "🫣",
-    "🤫", "🤔", "🫡", "🤐", "🤨", "😐", "😑", "😶", "🫥", "😏", "😒", "🙄", "😬", "😮‍💨", "🤥", "😌",
-    "😔", "😪", "🤤", "😴", "😷", "🤒", "🤕", "🤢", "🤮", "🥵", "🥶", "🥴", "😵", "🤯", "🤠", "🥳",
-  ],
-  Gestures: [
-    "👋", "🤚", "🖐️", "✋", "🖖", "🫱", "🫲", "🫳", "🫴", "👌", "🤌", "🤏", "✌️", "🤞", "🫰", "🤟",
-    "🤘", "🤙", "👈", "👉", "👆", "👇", "☝️", "🫵", "👍", "👎", "✊", "👊", "🤛", "🤜", "👏", "🙌",
-    "🫶", "👐", "🤲", "🤝", "🙏", "✍️", "💅", "🤳", "💪", "🦾", "🖕", "🫂", "👂", "🦻", "👃", "🫀",
-  ],
-  Hearts: [
-    "❤️", "🧡", "💛", "💚", "💙", "🩵", "💜", "🤎", "🖤", "🩶", "🤍", "💔", "❤️‍🔥", "❤️‍🩹", "❣️", "💕",
-    "💞", "💓", "💗", "💖", "💘", "💝", "💟", "♥️", "😍", "🥰", "😘", "💌", "💋", "💑", "💏", "💐",
-  ],
-  Symbols: [
-    "💯", "💢", "💥", "💫", "💦", "💨", "🕳️", "💬", "👁️‍🗨️", "🗨️", "🗯️", "💭", "🔥", "✨", "🌟", "⭐",
-    "⚡", "☀️", "🌈", "☁️", "❄️", "☔", "🎉", "🎊", "🎈", "🎁", "🔔", "🎵", "🎶", "✅", "❌", "❓",
-    "❗", "⭕", "➕", "➖", "➡️", "⬅️", "⬆️", "⬇️", "🔒", "🔑", "♻️", "©️", "®️", "™️", "💤", "🚫",
-  ],
-} as const;
-type EmojiCategory = "Recent" | keyof typeof EMOJI_KEYBOARD;
 
 function CallEntry({
   call,
@@ -136,6 +113,8 @@ function VoiceAttachment({ url, onRetry }: { url: string; onRetry: () => void })
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [playbackFailed, setPlaybackFailed] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
   const bars = [
     "h-3",
     "h-5",
@@ -159,11 +138,12 @@ function VoiceAttachment({ url, onRetry }: { url: string; onRetry: () => void })
     "h-3",
   ];
   return (
-    <div className="flex min-w-[190px] items-center gap-3" aria-label="Voice note">
+    <div className="flex min-w-[190px] items-center gap-2 rounded-2xl bg-card p-2 text-card-foreground" aria-label="Voice note">
       <audio
         ref={audio}
         src={url}
         preload="metadata"
+        onLoadedMetadata={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
         onError={() => {
           setPlaying(false);
           setPlaybackFailed(true);
@@ -171,10 +151,12 @@ function VoiceAttachment({ url, onRetry }: { url: string; onRetry: () => void })
         onEnded={() => {
           setPlaying(false);
           setProgress(0);
+          setCurrentTime(0);
         }}
         onTimeUpdate={(event) => {
           const el = event.currentTarget;
           setProgress(el.duration ? el.currentTime / el.duration : 0);
+          setCurrentTime(el.currentTime);
         }}
       />
       <Button
@@ -202,22 +184,24 @@ function VoiceAttachment({ url, onRetry }: { url: string; onRetry: () => void })
           }
         }}
       >
-        {playing ? <span className="font-bold">Ⅱ</span> : <Play />}
+        {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
       </Button>
-      <div
-        className="flex h-10 flex-1 items-center gap-0.5"
-        role="progressbar"
-        aria-valuenow={Math.round(progress * 100)}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label="Voice note progress"
-      >
-        {bars.map((height, index) => (
-          <span
-            key={index}
-            className={`w-1 flex-1 rounded-full ${height} ${index / bars.length <= progress ? "bg-primary" : "bg-muted-foreground/50"}`}
-          />
-        ))}
+      <div className="min-w-0 flex-1">
+        <div className="relative flex h-9 items-center gap-0.5">
+          {bars.map((height, index) => (
+            <span key={index} className={`min-w-0 flex-1 rounded-full ${height} ${index / bars.length <= progress ? "bg-primary" : "bg-muted-foreground/50"}`} />
+          ))}
+          <input type="range" min="0" max="100" value={Math.round(progress * 100)}
+            aria-label="Seek voice note" className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            onChange={(event) => {
+              if (!audio.current || !Number.isFinite(audio.current.duration)) return;
+              audio.current.currentTime = (Number(event.target.value) / 100) * audio.current.duration;
+              setProgress(Number(event.target.value) / 100);
+            }} />
+        </div>
+        <span className="block text-xs tabular-nums opacity-75">
+          {Math.floor((playing ? currentTime : duration) / 60)}:{String(Math.floor((playing ? currentTime : duration) % 60)).padStart(2, "0")}
+        </span>
       </div>
       {playbackFailed && (
         <Button
@@ -241,23 +225,20 @@ function Attachment({ message }: { message: MessageRow }) {
   const [urlRevision, setUrlRevision] = useState(0);
   const url = useRemoteUrl("attachments", message.attachment_url, urlRevision);
   if (!url) return <span className="text-sm">Loading attachment…</span>;
-  if (message.media_kind === "voice" || message.attachment_type?.startsWith("audio/"))
+    if (message.media_kind === "voice" || message.attachment_type?.startsWith("audio/"))
     return <VoiceAttachment url={url} onRetry={() => setUrlRevision((revision) => revision + 1)} />;
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+    <div className="block">
       {message.attachment_type?.startsWith("image/") ? (
-        <img
-          src={url}
-          alt={message.attachment_name ?? "Shared photo"}
-          className="max-h-80 w-full rounded-xl object-contain"
-          loading="lazy"
-        />
+        <a href={url} target="_blank" rel="noopener noreferrer" aria-label="Open shared photo">
+          <img src={url} alt={message.attachment_name ?? "Shared photo"} className="max-h-80 w-full rounded-xl object-contain" loading="lazy" />
+        </a>
       ) : message.media_kind === "video-note" ? (
         <video src={url} controls playsInline className="h-44 w-44 rounded-full object-cover" />
       ) : message.attachment_type?.startsWith("video/") ? (
         <video src={url} controls playsInline className="max-h-80 w-full rounded-xl" />
       ) : (
-        <span className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-3">
+        <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-3">
           <File className="h-5 w-5" />
           <span className="min-w-0">
             <span className="block truncate">{message.attachment_name ?? "File"}</span>
@@ -267,9 +248,9 @@ function Attachment({ message }: { message: MessageRow }) {
                 : (message.attachment_type ?? "Attachment")}
             </span>
           </span>
-        </span>
+        </a>
       )}
-    </a>
+    </div>
   );
 }
 
@@ -300,13 +281,10 @@ function Conversation() {
   const [recordingLocked, setRecordingLocked] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [waveform, setWaveform] = useState<number[]>(() => Array(32).fill(0.08));
-  const [stickersOpen, setStickersOpen] = useState(false);
-  const [emojiCategory, setEmojiCategory] = useState<EmojiCategory>("Smileys");
-  const [recentEmojis, setRecentEmojis] = useState<string[]>([]);
   const [attachmentSheet, setAttachmentSheet] = useState(false);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const [multiSelect, setMultiSelect] = useState<Set<string>>(new Set());
-  const currentUserId = user?.id;
   const recorder = useRef<MediaRecorder | null>(null);
   const recordingPending = useRef(false);
   const releasePending = useRef(false);
@@ -326,41 +304,14 @@ function Conversation() {
   const lastTyping = useRef(0);
 
   useEffect(() => {
-    if (!currentUserId) return;
-    try {
-      const saved = localStorage.getItem(`bigad-recent-emojis:${currentUserId}`);
-      if (saved) {
-        const parsed: unknown = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.every((emoji) => typeof emoji === "string")) {
-          setRecentEmojis(parsed.slice(0, 24));
-        }
-      }
-    } catch {
-      setRecentEmojis([]);
+    if (!file || !file.type.startsWith("image/")) {
+      setFilePreview(null);
+      return;
     }
-  }, [currentUserId]);
-
-  function insertEmoji(emoji: string) {
-    setBody((text) => text + emoji);
-    setRecentEmojis((current) => {
-      const next = [emoji, ...current.filter((recent) => recent !== emoji)].slice(0, 24);
-      if (user) {
-        try {
-          localStorage.setItem(`bigad-recent-emojis:${user.id}`, JSON.stringify(next));
-        } catch {
-          return next;
-        }
-      }
-      return next;
-    });
-  }
-
-  function toggleEmojiPicker() {
-    emojiInput.current?.blur();
-    setAttachmentSheet(false);
-    setEmojiCategory("Recent");
-    setStickersOpen((open) => !open);
-  }
+    const url = URL.createObjectURL(file);
+    setFilePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   useEffect(() => {
     if (!recording) return;
@@ -619,8 +570,6 @@ function Conversation() {
         body: null,
         attachment_url: uploadedPath,
         attachment_type: file.type,
-        media_kind: kind,
-        media_duration: duration,
         reply_to: reply?.id ?? null,
       });
       if (insertError) throw insertError;
@@ -738,7 +687,8 @@ function Conversation() {
       setRecording(null);
       return;
     }
-    const file = new globalThis.File([blob], `${kind}-${crypto.randomUUID()}.webm`, {
+    const extension = blob.type.includes("mp4") ? "mp4" : "webm";
+    const file = new globalThis.File([blob], `${kind}-${crypto.randomUUID()}.${extension}`, {
       type: blob.type,
     });
     const duration = Math.max(1, Math.round((Date.now() - recordingStartedAt.current) / 1000));
@@ -816,7 +766,7 @@ function Conversation() {
               <ChevronLeft className="h-5 w-5" />
             </Link>
           </Button>
-          <div className="liquid-chrome flex h-14 min-w-0 flex-1 items-center gap-2 rounded-[28px] px-3">
+          <div className="liquid-chrome flex h-14 min-w-0 flex-1 items-center gap-2 overflow-hidden rounded-[28px] px-3">
             <span className="relative shrink-0">
               <ChatAvatar name={title} path={group ? null : other?.avatar_url} size={36} />
               {online && (
@@ -826,13 +776,6 @@ function Conversation() {
             <span className="min-w-0 flex-1">
               <span className="flex min-w-0 items-center gap-1">
                 <span className="truncate text-[14px] font-semibold text-foreground">{title}</span>
-                <span
-                  className="shrink-0 text-[14px] leading-none text-primary"
-                  role="img"
-                  aria-label="Verified"
-                >
-                  ★
-                </span>
               </span>
               <span className="block truncate text-[11px] text-muted-foreground">
                 {typing.length > 0
@@ -962,7 +905,7 @@ function Conversation() {
                   <div
                     className={`relative max-w-[82%] rounded-[24px] px-3.5 py-2 shadow-sm ${
                       own
-                        ? "sent-bubble rounded-br-lg bg-bubble-out text-bubble-out-foreground"
+                        ? "rounded-br-lg bg-bubble-out text-bubble-out-foreground"
                         : "rounded-bl-lg border border-border bg-bubble-in text-bubble-in-foreground"
                     }`}
                     onDoubleClick={() => !m.deleted_at && setSelected(m.id)}
@@ -999,7 +942,7 @@ function Conversation() {
                         )}
                       </>
                     )}
-                    <div className="mt-1 flex min-h-3 items-center justify-end gap-1 text-[10px] leading-none text-ink-tertiary">
+                    <div className={`mt-1 flex min-h-3 items-center justify-end gap-1 text-[10px] leading-none ${own ? "text-bubble-out-foreground/80" : "text-ink-tertiary"}`}>
                       {m.edited_at && <span>Edited</span>}
                       <time dateTime={m.created_at}>
                         {new Date(m.created_at).toLocaleTimeString([], {
@@ -1136,8 +1079,9 @@ function Conversation() {
           </div>
         )}
         {(reply || editing || file) && (
-          <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-secondary px-3 py-1 text-sm">
-            <span className="truncate">
+          <div className="mx-3 mb-2 flex min-w-0 items-center justify-between gap-2 rounded-xl border border-border bg-card p-2 text-sm shadow-sm">
+            {filePreview && <img src={filePreview} alt="Selected photo" className="h-16 w-16 shrink-0 rounded-lg object-cover" />}
+            <span className="min-w-0 flex-1 truncate">
               {editing
                 ? `Editing: ${editing.body}`
                 : reply
@@ -1160,7 +1104,8 @@ function Conversation() {
           </div>
         )}
         {recording && (
-          <div className="mb-2 flex items-center gap-3 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="mx-3 mb-2 flex items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2 text-sm text-foreground shadow-sm">
+            <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-destructive" aria-label="Recording" />
             <span className="shrink-0 font-mono tabular-nums" aria-label="Recording duration">
               {String(Math.floor(recordingSeconds / 60)).padStart(2, "0")}:
               {String(recordingSeconds % 60).padStart(2, "0")}
@@ -1173,7 +1118,7 @@ function Conversation() {
                 {waveform.map((amplitude, index) => (
                   <span
                     key={index}
-                    className="min-w-0 flex-1 rounded-full bg-destructive"
+                    className="min-w-0 flex-1 rounded-full bg-primary"
                     style={{ height: `${Math.max(3, Math.round(amplitude * 26))}px` }}
                   />
                 ))}
@@ -1308,67 +1253,9 @@ function Conversation() {
               e.target.value = "";
             }}
           />
-          {stickersOpen && (
-            <div
-              className="emoji-keyboard-panel absolute bottom-full z-30 mb-2 w-full"
-              role="dialog"
-              aria-label="Emoji keyboard"
-            >
-              <div className="flex h-12 items-center gap-1 overflow-x-auto border-b border-border px-2">
-                {(["Recent", "Smileys", "Gestures", "Hearts", "Symbols"] as const).map((category) => (
-                  <button
-                    key={category}
-                    type="button"
-                    className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${
-                      emojiCategory === category
-                        ? "emoji-category-active"
-                        : "text-muted-foreground"
-                    }`}
-                    aria-pressed={emojiCategory === category}
-                    onClick={() => setEmojiCategory(category)}
-                  >
-                    {category}
-                  </button>
-                ))}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="ml-auto h-9 shrink-0 px-3 text-sm font-bold"
-                  onClick={() => {
-                    setStickersOpen(false);
-                    gifInput.current?.click();
-                  }}
-                >
-                  GIF
-                </Button>
-              </div>
-              <div className="emoji-keyboard-grid no-scrollbar grid grid-cols-8 content-start gap-1 overflow-y-auto p-2">
-                {(emojiCategory === "Recent"
-                  ? recentEmojis
-                  : EMOJI_KEYBOARD[emojiCategory as keyof typeof EMOJI_KEYBOARD]
-                ).map((emoji, index) => (
-                  <button
-                    key={`${emoji}-${index}`}
-                    type="button"
-                    className="grid aspect-square min-w-0 place-items-center rounded-lg text-[24px] leading-none hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    aria-label={`Insert ${emoji}`}
-                    onClick={() => insertEmoji(emoji)}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-                {emojiCategory === "Recent" && recentEmojis.length === 0 && (
-                  <p className="col-span-8 py-5 text-center text-sm text-muted-foreground">
-                    Recently used emoji will appear here
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
           {attachmentSheet && (
             <div
-              className="attachment-picker absolute bottom-full left-0 z-30 mb-2 grid w-full grid-cols-4 gap-1 rounded-2xl p-2 shadow-lg"
+              className="attachment-picker absolute bottom-full left-0 z-30 mb-2 grid w-full grid-cols-2 gap-2 rounded-2xl p-3 shadow-lg sm:grid-cols-4"
               role="dialog"
               aria-label="Choose attachment"
             >
@@ -1382,7 +1269,7 @@ function Conversation() {
                 className="flex h-16 flex-col gap-1 rounded-xl px-4 text-xs"
               >
                 <ImageIcon className="h-5 w-5" />
-                Photos
+                Gallery
               </Button>
               <Button
                 type="button"
@@ -1430,7 +1317,6 @@ function Conversation() {
             disabled={busy || !!editing || !ready || !!error}
             onClick={() => {
               emojiInput.current?.blur();
-              setStickersOpen(false);
               setAttachmentSheet((value) => !value);
             }}
             className="chat-composer-icon h-10 w-10 shrink-0 rounded-full hover:bg-primary/10"
@@ -1441,8 +1327,11 @@ function Conversation() {
             type="button"
             variant="ghost"
             size="icon"
-            aria-label="Open emoji picker"
-            onClick={toggleEmojiPicker}
+            aria-label="Open phone keyboard for emoji"
+            onClick={() => {
+              setAttachmentSheet(false);
+              emojiInput.current?.focus();
+            }}
             className="chat-composer-icon h-10 w-10 shrink-0 rounded-full hover:bg-primary/10"
           >
             <Smile className="h-4 w-4" />
@@ -1452,6 +1341,7 @@ function Conversation() {
             aria-label="Message"
             placeholder="Message"
             rows={1}
+            inputMode="text"
             value={body}
             disabled={busy || !!error}
             className="max-h-32 min-h-10 min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-2 text-[15px] text-foreground outline-none placeholder:text-muted-foreground focus:ring-0"
@@ -1466,10 +1356,7 @@ function Conversation() {
                 });
               }
             }}
-            onFocus={() => {
-              setStickersOpen(false);
-              setAttachmentSheet(false);
-            }}
+            onFocus={() => setAttachmentSheet(false)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
@@ -1481,7 +1368,7 @@ function Conversation() {
             <Button
               type="submit"
               size="icon"
-              className="prism-send h-10 w-10 shrink-0 rounded-full bg-primary text-white hover:bg-primary/90"
+              className="prism-send h-11 w-11 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
               aria-label={editing ? "Save message" : "Send message"}
               disabled={busy || !ready || !!error}
             >
