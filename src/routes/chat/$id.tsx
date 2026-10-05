@@ -1326,7 +1326,7 @@ function Conversation() {
             type="button"
             variant="ghost"
             size="icon"
-            aria-label="Open emoji picker"
+            aria-label="Open phone keyboard for emoji"
             onClick={() => {
               setAttachmentSheet(false);
               emojiInput.current?.focus();

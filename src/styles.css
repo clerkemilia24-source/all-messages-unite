@@ -473,6 +473,20 @@ button.bg-primary:active::after { transform: translateX(130%); }
   background-color: #eaf0fa1c;
 }
 
+.dark .chat-screen .attachment-picker,
+.dark .chat-screen .chat-composer {
+  background-color: var(--card);
+  border-color: var(--border);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) .chat-screen .attachment-picker,
+  :root:not(.light) .chat-screen .chat-composer {
+    background-color: var(--card);
+    border-color: var(--border);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .typing-dots span { animation: none; opacity: 0.75; }
   .message-action-chip { transition: none; }
