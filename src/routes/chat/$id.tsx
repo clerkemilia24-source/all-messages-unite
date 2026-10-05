@@ -287,7 +287,6 @@ function Conversation() {
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const [multiSelect, setMultiSelect] = useState<Set<string>>(new Set());
-  const currentUserId = user?.id;
   const recorder = useRef<MediaRecorder | null>(null);
   const recordingPending = useRef(false);
   const releasePending = useRef(false);
@@ -690,7 +689,8 @@ function Conversation() {
       setRecording(null);
       return;
     }
-    const file = new globalThis.File([blob], `${kind}-${crypto.randomUUID()}.webm`, {
+    const extension = blob.type.includes("mp4") ? "mp4" : "webm";
+    const file = new globalThis.File([blob], `${kind}-${crypto.randomUUID()}.${extension}`, {
       type: blob.type,
     });
     const duration = Math.max(1, Math.round((Date.now() - recordingStartedAt.current) / 1000));
@@ -768,7 +768,7 @@ function Conversation() {
               <ChevronLeft className="h-5 w-5" />
             </Link>
           </Button>
-          <div className="liquid-chrome flex h-14 min-w-0 flex-1 items-center gap-2 rounded-[28px] px-3">
+          <div className="liquid-chrome flex h-14 min-w-0 flex-1 items-center gap-2 overflow-hidden rounded-[28px] px-3">
             <span className="relative shrink-0">
               <ChatAvatar name={title} path={group ? null : other?.avatar_url} size={36} />
               {online && (
@@ -778,13 +778,6 @@ function Conversation() {
             <span className="min-w-0 flex-1">
               <span className="flex min-w-0 items-center gap-1">
                 <span className="truncate text-[14px] font-semibold text-foreground">{title}</span>
-                <span
-                  className="shrink-0 text-[14px] leading-none text-primary"
-                  role="img"
-                  aria-label="Verified"
-                >
-                  ★
-                </span>
               </span>
               <span className="block truncate text-[11px] text-muted-foreground">
                 {typing.length > 0
@@ -914,7 +907,7 @@ function Conversation() {
                   <div
                     className={`relative max-w-[82%] rounded-[24px] px-3.5 py-2 shadow-sm ${
                       own
-                        ? "sent-bubble rounded-br-lg bg-bubble-out text-bubble-out-foreground"
+                        ? "rounded-br-lg bg-bubble-out text-bubble-out-foreground"
                         : "rounded-bl-lg border border-border bg-bubble-in text-bubble-in-foreground"
                     }`}
                     onDoubleClick={() => !m.deleted_at && setSelected(m.id)}
@@ -943,7 +936,6 @@ function Conversation() {
                       <p className="text-sm italic">Message deleted</p>
                     ) : (
                       <>
-                        {m.attachment_url && <Attachment message={m} />}
                         {m.body && (
                           <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.45] [overflow-wrap:anywhere]">
                             {m.body}
@@ -951,7 +943,7 @@ function Conversation() {
                         )}
                       </>
                     )}
-                    <div className="mt-1 flex min-h-3 items-center justify-end gap-1 text-[10px] leading-none text-ink-tertiary">
+                    <div className={`mt-1 flex min-h-3 items-center justify-end gap-1 text-[10px] leading-none ${own ? "text-bubble-out-foreground/80" : "text-ink-tertiary"}`}>
                       {m.edited_at && <span>Edited</span>}
                       <time dateTime={m.created_at}>
                         {new Date(m.created_at).toLocaleTimeString([], {
