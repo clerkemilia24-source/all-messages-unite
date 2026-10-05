@@ -138,7 +138,7 @@ function VoiceAttachment({ url, onRetry }: { url: string; onRetry: () => void })
     "h-3",
   ];
   return (
-    <div className="flex min-w-[190px] items-center gap-3" aria-label="Voice note">
+    <div className="flex min-w-[190px] items-center gap-2 rounded-2xl bg-card p-2 text-card-foreground" aria-label="Voice note">
       <audio
         ref={audio}
         src={url}
@@ -151,6 +151,7 @@ function VoiceAttachment({ url, onRetry }: { url: string; onRetry: () => void })
         onEnded={() => {
           setPlaying(false);
           setProgress(0);
+          setCurrentTime(0);
         }}
         onTimeUpdate={(event) => {
           const el = event.currentTarget;
@@ -224,7 +225,7 @@ function Attachment({ message }: { message: MessageRow }) {
   const [urlRevision, setUrlRevision] = useState(0);
   const url = useRemoteUrl("attachments", message.attachment_url, urlRevision);
   if (!url) return <span className="text-sm">Loading attachment…</span>;
-  if (message.media_kind === "voice" || message.attachment_type?.startsWith("audio/"))
+    if (message.media_kind === "voice" || message.attachment_type?.startsWith("audio/"))
     return <VoiceAttachment url={url} onRetry={() => setUrlRevision((revision) => revision + 1)} />;
   return (
     <div className="block">
