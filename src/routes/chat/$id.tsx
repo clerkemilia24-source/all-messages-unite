@@ -936,6 +936,7 @@ function Conversation() {
                       <p className="text-sm italic">Message deleted</p>
                     ) : (
                       <>
+                        {m.attachment_url && <Attachment message={m} />}
                         {m.body && (
                           <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.45] [overflow-wrap:anywhere]">
                             {m.body}
