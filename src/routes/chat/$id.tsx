@@ -143,7 +143,7 @@ function VoiceAttachment({ url, onRetry }: { url: string; onRetry: () => void })
         ref={audio}
         src={url}
         preload="metadata"
-        onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)}
+        onLoadedMetadata={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
         onError={() => {
           setPlaying(false);
           setPlaybackFailed(true);
@@ -227,20 +227,17 @@ function Attachment({ message }: { message: MessageRow }) {
   if (message.media_kind === "voice" || message.attachment_type?.startsWith("audio/"))
     return <VoiceAttachment url={url} onRetry={() => setUrlRevision((revision) => revision + 1)} />;
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+    <div className="block">
       {message.attachment_type?.startsWith("image/") ? (
-        <img
-          src={url}
-          alt={message.attachment_name ?? "Shared photo"}
-          className="max-h-80 w-full rounded-xl object-contain"
-          loading="lazy"
-        />
+        <a href={url} target="_blank" rel="noopener noreferrer" aria-label="Open shared photo">
+          <img src={url} alt={message.attachment_name ?? "Shared photo"} className="max-h-80 w-full rounded-xl object-contain" loading="lazy" />
+        </a>
       ) : message.media_kind === "video-note" ? (
         <video src={url} controls playsInline className="h-44 w-44 rounded-full object-cover" />
       ) : message.attachment_type?.startsWith("video/") ? (
         <video src={url} controls playsInline className="max-h-80 w-full rounded-xl" />
       ) : (
-        <span className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-3">
+        <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-3">
           <File className="h-5 w-5" />
           <span className="min-w-0">
             <span className="block truncate">{message.attachment_name ?? "File"}</span>
@@ -250,9 +247,9 @@ function Attachment({ message }: { message: MessageRow }) {
                 : (message.attachment_type ?? "Attachment")}
             </span>
           </span>
-        </span>
+        </a>
       )}
-    </a>
+    </div>
   );
 }
 
@@ -1370,7 +1367,7 @@ function Conversation() {
             <Button
               type="submit"
               size="icon"
-              className="prism-send h-10 w-10 shrink-0 rounded-full bg-primary text-white hover:bg-primary/90"
+              className="prism-send h-11 w-11 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
               aria-label={editing ? "Save message" : "Send message"}
               disabled={busy || !ready || !!error}
             >
