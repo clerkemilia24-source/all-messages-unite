@@ -1262,67 +1262,9 @@ function Conversation() {
               e.target.value = "";
             }}
           />
-          {stickersOpen && (
-            <div
-              className="emoji-keyboard-panel absolute bottom-full z-30 mb-2 w-full"
-              role="dialog"
-              aria-label="Emoji keyboard"
-            >
-              <div className="flex h-12 items-center gap-1 overflow-x-auto border-b border-border px-2">
-                {(["Recent", "Smileys", "Gestures", "Hearts", "Symbols"] as const).map((category) => (
-                  <button
-                    key={category}
-                    type="button"
-                    className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${
-                      emojiCategory === category
-                        ? "emoji-category-active"
-                        : "text-muted-foreground"
-                    }`}
-                    aria-pressed={emojiCategory === category}
-                    onClick={() => setEmojiCategory(category)}
-                  >
-                    {category}
-                  </button>
-                ))}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="ml-auto h-9 shrink-0 px-3 text-sm font-bold"
-                  onClick={() => {
-                    setStickersOpen(false);
-                    gifInput.current?.click();
-                  }}
-                >
-                  GIF
-                </Button>
-              </div>
-              <div className="emoji-keyboard-grid no-scrollbar grid grid-cols-8 content-start gap-1 overflow-y-auto p-2">
-                {(emojiCategory === "Recent"
-                  ? recentEmojis
-                  : EMOJI_KEYBOARD[emojiCategory as keyof typeof EMOJI_KEYBOARD]
-                ).map((emoji, index) => (
-                  <button
-                    key={`${emoji}-${index}`}
-                    type="button"
-                    className="grid aspect-square min-w-0 place-items-center rounded-lg text-[24px] leading-none hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    aria-label={`Insert ${emoji}`}
-                    onClick={() => insertEmoji(emoji)}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-                {emojiCategory === "Recent" && recentEmojis.length === 0 && (
-                  <p className="col-span-8 py-5 text-center text-sm text-muted-foreground">
-                    Recently used emoji will appear here
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
           {attachmentSheet && (
             <div
-              className="attachment-picker absolute bottom-full left-0 z-30 mb-2 grid w-full grid-cols-4 gap-1 rounded-2xl p-2 shadow-lg"
+              className="attachment-picker absolute bottom-full left-0 z-30 mb-2 grid w-full grid-cols-2 gap-2 rounded-2xl p-3 shadow-lg sm:grid-cols-4"
               role="dialog"
               aria-label="Choose attachment"
             >
@@ -1336,7 +1278,7 @@ function Conversation() {
                 className="flex h-16 flex-col gap-1 rounded-xl px-4 text-xs"
               >
                 <ImageIcon className="h-5 w-5" />
-                Photos
+                Gallery
               </Button>
               <Button
                 type="button"
@@ -1384,7 +1326,6 @@ function Conversation() {
             disabled={busy || !!editing || !ready || !!error}
             onClick={() => {
               emojiInput.current?.blur();
-              setStickersOpen(false);
               setAttachmentSheet((value) => !value);
             }}
             className="chat-composer-icon h-10 w-10 shrink-0 rounded-full hover:bg-primary/10"
@@ -1396,7 +1337,10 @@ function Conversation() {
             variant="ghost"
             size="icon"
             aria-label="Open emoji picker"
-            onClick={toggleEmojiPicker}
+            onClick={() => {
+              setAttachmentSheet(false);
+              emojiInput.current?.focus();
+            }}
             className="chat-composer-icon h-10 w-10 shrink-0 rounded-full hover:bg-primary/10"
           >
             <Smile className="h-4 w-4" />
@@ -1406,6 +1350,7 @@ function Conversation() {
             aria-label="Message"
             placeholder="Message"
             rows={1}
+            inputMode="text"
             value={body}
             disabled={busy || !!error}
             className="max-h-32 min-h-10 min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-2 text-[15px] text-foreground outline-none placeholder:text-muted-foreground focus:ring-0"
@@ -1420,10 +1365,7 @@ function Conversation() {
                 });
               }
             }}
-            onFocus={() => {
-              setStickersOpen(false);
-              setAttachmentSheet(false);
-            }}
+            onFocus={() => setAttachmentSheet(false)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
