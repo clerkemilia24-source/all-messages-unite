@@ -23,6 +23,7 @@ import {
   Copy,
   Forward,
   Play,
+  Pause,
   RotateCcw,
   Phone,
   PhoneCall,
@@ -60,30 +61,6 @@ type FailedRecording = {
   kind: "voice" | "video-note";
   duration: number;
 };
-
-const EMOJI_KEYBOARD = {
-  Smileys: [
-    "😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "🙃", "😉", "😊", "😇", "🥰", "😍", "🤩",
-    "😘", "😗", "☺️", "😚", "😙", "🥲", "😋", "😛", "😜", "🤪", "😝", "🤑", "🤗", "🤭", "🫢", "🫣",
-    "🤫", "🤔", "🫡", "🤐", "🤨", "😐", "😑", "😶", "🫥", "😏", "😒", "🙄", "😬", "😮‍💨", "🤥", "😌",
-    "😔", "😪", "🤤", "😴", "😷", "🤒", "🤕", "🤢", "🤮", "🥵", "🥶", "🥴", "😵", "🤯", "🤠", "🥳",
-  ],
-  Gestures: [
-    "👋", "🤚", "🖐️", "✋", "🖖", "🫱", "🫲", "🫳", "🫴", "👌", "🤌", "🤏", "✌️", "🤞", "🫰", "🤟",
-    "🤘", "🤙", "👈", "👉", "👆", "👇", "☝️", "🫵", "👍", "👎", "✊", "👊", "🤛", "🤜", "👏", "🙌",
-    "🫶", "👐", "🤲", "🤝", "🙏", "✍️", "💅", "🤳", "💪", "🦾", "🖕", "🫂", "👂", "🦻", "👃", "🫀",
-  ],
-  Hearts: [
-    "❤️", "🧡", "💛", "💚", "💙", "🩵", "💜", "🤎", "🖤", "🩶", "🤍", "💔", "❤️‍🔥", "❤️‍🩹", "❣️", "💕",
-    "💞", "💓", "💗", "💖", "💘", "💝", "💟", "♥️", "😍", "🥰", "😘", "💌", "💋", "💑", "💏", "💐",
-  ],
-  Symbols: [
-    "💯", "💢", "💥", "💫", "💦", "💨", "🕳️", "💬", "👁️‍🗨️", "🗨️", "🗯️", "💭", "🔥", "✨", "🌟", "⭐",
-    "⚡", "☀️", "🌈", "☁️", "❄️", "☔", "🎉", "🎊", "🎈", "🎁", "🔔", "🎵", "🎶", "✅", "❌", "❓",
-    "❗", "⭕", "➕", "➖", "➡️", "⬅️", "⬆️", "⬇️", "🔒", "🔑", "♻️", "©️", "®️", "™️", "💤", "🚫",
-  ],
-} as const;
-type EmojiCategory = "Recent" | keyof typeof EMOJI_KEYBOARD;
 
 function CallEntry({
   call,
@@ -136,6 +113,8 @@ function VoiceAttachment({ url, onRetry }: { url: string; onRetry: () => void })
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [playbackFailed, setPlaybackFailed] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
   const bars = [
     "h-3",
     "h-5",
@@ -164,6 +143,7 @@ function VoiceAttachment({ url, onRetry }: { url: string; onRetry: () => void })
         ref={audio}
         src={url}
         preload="metadata"
+        onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)}
         onError={() => {
           setPlaying(false);
           setPlaybackFailed(true);
@@ -175,6 +155,7 @@ function VoiceAttachment({ url, onRetry }: { url: string; onRetry: () => void })
         onTimeUpdate={(event) => {
           const el = event.currentTarget;
           setProgress(el.duration ? el.currentTime / el.duration : 0);
+          setCurrentTime(el.currentTime);
         }}
       />
       <Button
@@ -202,22 +183,24 @@ function VoiceAttachment({ url, onRetry }: { url: string; onRetry: () => void })
           }
         }}
       >
-        {playing ? <span className="font-bold">Ⅱ</span> : <Play />}
+        {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
       </Button>
-      <div
-        className="flex h-10 flex-1 items-center gap-0.5"
-        role="progressbar"
-        aria-valuenow={Math.round(progress * 100)}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label="Voice note progress"
-      >
-        {bars.map((height, index) => (
-          <span
-            key={index}
-            className={`w-1 flex-1 rounded-full ${height} ${index / bars.length <= progress ? "bg-primary" : "bg-muted-foreground/50"}`}
-          />
-        ))}
+      <div className="min-w-0 flex-1">
+        <div className="relative flex h-9 items-center gap-0.5">
+          {bars.map((height, index) => (
+            <span key={index} className={`min-w-0 flex-1 rounded-full ${height} ${index / bars.length <= progress ? "bg-primary" : "bg-muted-foreground/50"}`} />
+          ))}
+          <input type="range" min="0" max="100" value={Math.round(progress * 100)}
+            aria-label="Seek voice note" className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            onChange={(event) => {
+              if (!audio.current || !Number.isFinite(audio.current.duration)) return;
+              audio.current.currentTime = (Number(event.target.value) / 100) * audio.current.duration;
+              setProgress(Number(event.target.value) / 100);
+            }} />
+        </div>
+        <span className="block text-xs tabular-nums opacity-75">
+          {Math.floor((playing ? currentTime : duration) / 60)}:{String(Math.floor((playing ? currentTime : duration) % 60)).padStart(2, "0")}
+        </span>
       </div>
       {playbackFailed && (
         <Button
@@ -300,10 +283,8 @@ function Conversation() {
   const [recordingLocked, setRecordingLocked] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [waveform, setWaveform] = useState<number[]>(() => Array(32).fill(0.08));
-  const [stickersOpen, setStickersOpen] = useState(false);
-  const [emojiCategory, setEmojiCategory] = useState<EmojiCategory>("Smileys");
-  const [recentEmojis, setRecentEmojis] = useState<string[]>([]);
   const [attachmentSheet, setAttachmentSheet] = useState(false);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const [multiSelect, setMultiSelect] = useState<Set<string>>(new Set());
   const currentUserId = user?.id;
@@ -326,41 +307,14 @@ function Conversation() {
   const lastTyping = useRef(0);
 
   useEffect(() => {
-    if (!currentUserId) return;
-    try {
-      const saved = localStorage.getItem(`bigad-recent-emojis:${currentUserId}`);
-      if (saved) {
-        const parsed: unknown = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.every((emoji) => typeof emoji === "string")) {
-          setRecentEmojis(parsed.slice(0, 24));
-        }
-      }
-    } catch {
-      setRecentEmojis([]);
+    if (!file || !file.type.startsWith("image/")) {
+      setFilePreview(null);
+      return;
     }
-  }, [currentUserId]);
-
-  function insertEmoji(emoji: string) {
-    setBody((text) => text + emoji);
-    setRecentEmojis((current) => {
-      const next = [emoji, ...current.filter((recent) => recent !== emoji)].slice(0, 24);
-      if (user) {
-        try {
-          localStorage.setItem(`bigad-recent-emojis:${user.id}`, JSON.stringify(next));
-        } catch {
-          return next;
-        }
-      }
-      return next;
-    });
-  }
-
-  function toggleEmojiPicker() {
-    emojiInput.current?.blur();
-    setAttachmentSheet(false);
-    setEmojiCategory("Recent");
-    setStickersOpen((open) => !open);
-  }
+    const url = URL.createObjectURL(file);
+    setFilePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   useEffect(() => {
     if (!recording) return;
@@ -619,8 +573,6 @@ function Conversation() {
         body: null,
         attachment_url: uploadedPath,
         attachment_type: file.type,
-        media_kind: kind,
-        media_duration: duration,
         reply_to: reply?.id ?? null,
       });
       if (insertError) throw insertError;
@@ -1136,8 +1088,9 @@ function Conversation() {
           </div>
         )}
         {(reply || editing || file) && (
-          <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-secondary px-3 py-1 text-sm">
-            <span className="truncate">
+          <div className="mx-3 mb-2 flex min-w-0 items-center justify-between gap-2 rounded-xl border border-border bg-card p-2 text-sm shadow-sm">
+            {filePreview && <img src={filePreview} alt="Selected photo" className="h-16 w-16 shrink-0 rounded-lg object-cover" />}
+            <span className="min-w-0 flex-1 truncate">
               {editing
                 ? `Editing: ${editing.body}`
                 : reply
@@ -1160,7 +1113,8 @@ function Conversation() {
           </div>
         )}
         {recording && (
-          <div className="mb-2 flex items-center gap-3 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="mx-3 mb-2 flex items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2 text-sm text-foreground shadow-sm">
+            <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-destructive" aria-label="Recording" />
             <span className="shrink-0 font-mono tabular-nums" aria-label="Recording duration">
               {String(Math.floor(recordingSeconds / 60)).padStart(2, "0")}:
               {String(recordingSeconds % 60).padStart(2, "0")}
@@ -1173,7 +1127,7 @@ function Conversation() {
                 {waveform.map((amplitude, index) => (
                   <span
                     key={index}
-                    className="min-w-0 flex-1 rounded-full bg-destructive"
+                    className="min-w-0 flex-1 rounded-full bg-primary"
                     style={{ height: `${Math.max(3, Math.round(amplitude * 26))}px` }}
                   />
                 ))}
